@@ -93,8 +93,32 @@ fix_to_regex("ABC|?(*)")
   special character
 
 ``` r
-detect_dup(c("a", "C_", "c -", "#A"))
+detect_dup(c("a", "B", "C_", "c -", "#A"))
 #> [1] "a"   "#A"  "C_"  "c -"
+```
+
+- extract key and values for a character vector
+
+``` r
+extract_kv(c("x: 1", "y: 2"))
+#>   x   y 
+#> "1" "2"
+```
+
+- farthest point sampling (FPS) for a vector
+
+``` r
+fps_vector(1:10, 2)
+#> [1]  1 10
+
+fps_vector(1:10, 4)
+#> [1]  1  4  7 10
+
+fps_vector(c(1, 2, NULL), 2)
+#> [1] 1 2
+
+fps_vector(c(1, 2, NA), 2)
+#> [1]  1 NA
 ```
 
 ## numbers
@@ -156,6 +180,19 @@ number_fun_wrapper(">=2.134%", function(x) round(x, 2))
 #> [1] ">=2.13%"
 ```
 
+- expand a number vector according to the adjacent two numbers
+
+``` r
+adjacent_div(10^c(1:3), n_div = 10)
+#>  [1]   10   20   30   40   50   60   70   80   90  100  100  200  300  400  500
+#> [16]  600  700  800  900 1000
+
+# only keep the unique numbers
+adjacent_div(10^c(1:3), n_div = 10, .unique = TRUE)
+#>  [1]   10   20   30   40   50   60   70   80   90  100  200  300  400  500  600
+#> [16]  700  800  900 1000
+```
+
 ## dataframe
 
 - a minimal dataset
@@ -175,8 +212,17 @@ head(mini_diamond)
   `dplyr::rownames_to_column`
 
 ``` r
-
 head(mini_diamond) %>% c2r("id")
+#>      carat   cut clarity price    x    y
+#> id-1  1.02  Fair     SI1  3027 6.25 6.18
+#> id-2  1.51  Good     VS2 11746 7.27 7.18
+#> id-3  0.52 Ideal    VVS1  2029 5.15 5.18
+#> id-4  1.54 Ideal     SI2  9452 7.43 7.45
+#> id-5  0.72 Ideal     VS1  2498 5.73 5.77
+#> id-6  2.02  Fair     SI2 14080 8.33 8.37
+
+# use column index
+head(mini_diamond) %>% c2r(1)
 #>      carat   cut clarity price    x    y
 #> id-1  1.02  Fair     SI1  3027 6.25 6.18
 #> id-2  1.51  Good     VS2 11746 7.27 7.18
@@ -199,11 +245,20 @@ head(mini_diamond) %>%
 #> 6 id-6   2.02 Fair  SI2     14080  8.33  8.37
 ```
 
-- better count to show a main column and a fine column
+- fancy count to show up to two columns and their summary
 
 ``` r
 
-# sort by n (default)
+# count one column
+fancy_count(mini_diamond, "cut")
+#> # A tibble: 3 × 3
+#>   cut       n     r
+#>   <chr> <int> <dbl>
+#> 1 Fair     35  0.35
+#> 2 Ideal    34  0.34
+#> 3 Good     31  0.31
+
+# count two columns and sort by n (default)
 fancy_count(mini_diamond, "cut", "clarity")
 #> # A tibble: 3 × 4
 #>   cut       n     r clarity                                                
@@ -211,15 +266,6 @@ fancy_count(mini_diamond, "cut", "clarity")
 #> 1 Fair     35  0.35 I1(5),SI1(5),VS2(5),VVS1(5),IF(4),SI2(4),VVS2(4),VS1(3)
 #> 2 Ideal    34  0.34 SI1(5),VS1(5),VVS1(5),VVS2(5),I1(4),IF(4),SI2(4),VS2(2)
 #> 3 Good     31  0.31 I1(5),IF(5),SI1(4),SI2(4),VS2(4),VVS1(4),VVS2(3),VS1(2)
-
-# sort by character order
-fancy_count(mini_diamond, "cut", "clarity", sort = FALSE)
-#> # A tibble: 3 × 4
-#>   cut       n     r clarity                                                
-#>   <chr> <int> <dbl> <chr>                                                  
-#> 1 Fair     35  0.35 I1(5),IF(4),SI1(5),SI2(4),VS1(3),VS2(5),VVS1(5),VVS2(4)
-#> 2 Good     31  0.31 I1(5),IF(5),SI1(4),SI2(4),VS1(2),VS2(4),VVS1(4),VVS2(3)
-#> 3 Ideal    34  0.34 I1(4),IF(4),SI1(5),SI2(4),VS1(5),VS2(2),VVS1(5),VVS2(5)
 
 fancy_count(mini_diamond, "cut", "clarity", fine_fmt = "ratio")
 #> # A tibble: 3 × 4
@@ -236,9 +282,94 @@ fancy_count(mini_diamond, "cut", "clarity", fine_fmt = "clean")
 #> 1 Fair     35  0.35 I1,SI1,VS2,VVS1,IF,SI2,VVS2,VS1
 #> 2 Ideal    34  0.34 SI1,VS1,VVS1,VVS2,I1,IF,SI2,VS2
 #> 3 Good     31  0.31 I1,IF,SI1,SI2,VS2,VVS1,VVS2,VS1
+
+# count two columns and sort by character order
+fancy_count(mini_diamond, "cut", "clarity", sort = FALSE)
+#> # A tibble: 3 × 4
+#>   cut       n     r clarity                                                
+#>   <chr> <int> <dbl> <chr>                                                  
+#> 1 Fair     35  0.35 I1(5),IF(4),SI1(5),SI2(4),VS1(3),VS2(5),VVS1(5),VVS2(4)
+#> 2 Good     31  0.31 I1(5),IF(5),SI1(4),SI2(4),VS1(2),VS2(4),VVS1(4),VVS2(3)
+#> 3 Ideal    34  0.34 I1(4),IF(4),SI1(5),SI2(4),VS1(5),VS2(2),VVS1(5),VVS2(5)
 ```
 
-- better slice by an ordered vector
+- split a column and return a longer dataframe
+
+``` r
+fancy_count(mini_diamond, "cut", "clarity") %>%
+  split_column(name_col = "cut", value_col = "clarity")
+#> # A tibble: 24 × 2
+#>    cut   clarity
+#>    <chr> <chr>  
+#>  1 Fair  I1(5)  
+#>  2 Fair  SI1(5) 
+#>  3 Fair  VS2(5) 
+#>  4 Fair  VVS1(5)
+#>  5 Fair  IF(4)  
+#>  6 Fair  SI2(4) 
+#>  7 Fair  VVS2(4)
+#>  8 Fair  VS1(3) 
+#>  9 Ideal SI1(5) 
+#> 10 Ideal VS1(5) 
+#> # … with 14 more rows
+```
+
+- move selected rows to target location
+
+``` r
+# move row 3-5 after row 8
+move_row(mini_diamond, 3:5, .after = 8)
+#> # A tibble: 100 × 7
+#>    id    carat cut   clarity price     x     y
+#>    <chr> <dbl> <chr> <chr>   <int> <dbl> <dbl>
+#>  1 id-1   1.02 Fair  SI1      3027  6.25  6.18
+#>  2 id-2   1.51 Good  VS2     11746  7.27  7.18
+#>  3 id-6   2.02 Fair  SI2     14080  8.33  8.37
+#>  4 id-7   0.27 Good  VVS1      752  4.1   4.07
+#>  5 id-8   0.51 Good  SI2      1029  5.05  5.08
+#>  6 id-3   0.52 Ideal VVS1     2029  5.15  5.18
+#>  7 id-4   1.54 Ideal SI2      9452  7.43  7.45
+#>  8 id-5   0.72 Ideal VS1      2498  5.73  5.77
+#>  9 id-9   1.01 Ideal SI1      5590  6.43  6.4 
+#> 10 id-10  0.7  Fair  VVS1     1691  5.56  5.41
+#> # … with 90 more rows
+
+# move row 3-5 before the first row
+move_row(mini_diamond, 3:5, .before = TRUE)
+#> # A tibble: 100 × 7
+#>    id    carat cut   clarity price     x     y
+#>    <chr> <dbl> <chr> <chr>   <int> <dbl> <dbl>
+#>  1 id-3   0.52 Ideal VVS1     2029  5.15  5.18
+#>  2 id-4   1.54 Ideal SI2      9452  7.43  7.45
+#>  3 id-5   0.72 Ideal VS1      2498  5.73  5.77
+#>  4 id-1   1.02 Fair  SI1      3027  6.25  6.18
+#>  5 id-2   1.51 Good  VS2     11746  7.27  7.18
+#>  6 id-6   2.02 Fair  SI2     14080  8.33  8.37
+#>  7 id-7   0.27 Good  VVS1      752  4.1   4.07
+#>  8 id-8   0.51 Good  SI2      1029  5.05  5.08
+#>  9 id-9   1.01 Ideal SI1      5590  6.43  6.4 
+#> 10 id-10  0.7  Fair  VVS1     1691  5.56  5.41
+#> # … with 90 more rows
+
+# move row 3-5 after the last row
+move_row(mini_diamond, 3:5, .after = TRUE)
+#> # A tibble: 100 × 7
+#>    id    carat cut   clarity price     x     y
+#>    <chr> <dbl> <chr> <chr>   <int> <dbl> <dbl>
+#>  1 id-1   1.02 Fair  SI1      3027  6.25  6.18
+#>  2 id-2   1.51 Good  VS2     11746  7.27  7.18
+#>  3 id-6   2.02 Fair  SI2     14080  8.33  8.37
+#>  4 id-7   0.27 Good  VVS1      752  4.1   4.07
+#>  5 id-8   0.51 Good  SI2      1029  5.05  5.08
+#>  6 id-9   1.01 Ideal SI1      5590  6.43  6.4 
+#>  7 id-10  0.7  Fair  VVS1     1691  5.56  5.41
+#>  8 id-11  1.02 Good  VVS1     7861  6.37  6.4 
+#>  9 id-12  0.71 Fair  IF       3205  5.87  5.81
+#> 10 id-13  0.56 Ideal SI1      1633  5.31  5.32
+#> # … with 90 more rows
+```
+
+- slice a tibble by an ordered vector
 
 ``` r
 ordered_slice(mini_diamond, "id", c("id-3", "id-2"))
@@ -292,6 +423,59 @@ ordered_slice(mini_diamond, "id", c("id-3", "id-2", "unknown_id", "id-3", NA),
 #> 1 id-3   0.52 Ideal VVS1     2029  5.15  5.18
 #> 2 id-2   1.51 Good  VS2     11746  7.27  7.18
 #> 3 <NA>  NA    <NA>  <NA>       NA NA    NA
+```
+
+## stat
+
+- statistical test which returns a extensible tibble
+
+``` r
+stat_test(mini_diamond, y = price, x = cut, .by = clarity)
+#> # A tibble: 24 × 11
+#>    clarity .y.   group1 group2    n1    n2 statistic     p p.adj p.adj…¹ p.sig…²
+#>    <chr>   <chr> <chr>  <chr>  <int> <int>     <dbl> <dbl> <dbl> <chr>   <chr>  
+#>  1 I1      price Fair   Good       5     5        18 0.31  0.62  ns      NS     
+#>  2 I1      price Fair   Ideal      5     4        11 0.905 0.905 ns      NS     
+#>  3 I1      price Good   Ideal      5     4         4 0.19  0.57  ns      NS     
+#>  4 IF      price Fair   Good       4     5        18 0.064 0.177 ns      NS     
+#>  5 IF      price Fair   Ideal      4     4        15 0.059 0.177 ns      NS     
+#>  6 IF      price Good   Ideal      5     4        10 1     1     ns      NS     
+#>  7 SI1     price Fair   Good       5     4        10 1     1     ns      NS     
+#>  8 SI1     price Fair   Ideal      5     5        13 1     1     ns      NS     
+#>  9 SI1     price Good   Ideal      4     5         6 0.413 1     ns      NS     
+#> 10 SI2     price Fair   Good       4     4        15 0.057 0.171 ns      NS     
+#> # … with 14 more rows, and abbreviated variable names ¹​p.adj.signif, ²​p.signif
+```
+
+- fold change calculation which returns a extensible tibble
+
+``` r
+stat_fc(mini_diamond, y = price, x = cut, .by = clarity)
+#> # A tibble: 1,266 × 7
+#>    clarity cut_1 cut_2 price_1 price_2 fc_price fc_price_fmt
+#>    <chr>   <chr> <chr>   <int>   <int>    <dbl> <chr>       
+#>  1 SI1     Fair  Fair     3027    3027    1     1.0x        
+#>  2 SI1     Fair  Ideal    3027    5590    0.542 0.54x       
+#>  3 SI1     Fair  Ideal    3027    1633    1.85  1.9x        
+#>  4 SI1     Fair  Good     3027    5252    0.576 0.58x       
+#>  5 SI1     Fair  Good     3027     589    5.14  5.1x        
+#>  6 SI1     Fair  Ideal    3027    5370    0.564 0.56x       
+#>  7 SI1     Fair  Good     3027    4851    0.624 0.62x       
+#>  8 SI1     Fair  Fair     3027    4480    0.676 0.68x       
+#>  9 SI1     Fair  Fair     3027    1952    1.55  1.6x        
+#> 10 SI1     Fair  Fair     3027   18026    0.168 0.17x       
+#> # … with 1,256 more rows
+```
+
+## IO
+
+- write a tibble, or a list of tibbles into an excel file
+
+``` r
+# write_excel(mini_diamond, "mini_diamond.xlsx")
+
+# Ldf <- list(mini_diamond[1:3, ], mini_diamond[4:6, ])
+# write_excel_path(Ldf, '2sheets.xlsx')
 ```
 
 ## Code of Conduct

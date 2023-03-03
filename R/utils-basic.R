@@ -131,3 +131,57 @@ detect_dup <- function(vector, index = FALSE) {
     return(res)
   }
 }
+
+
+#' extract key and values for a character vector
+#'
+#' @param v character vector
+#' @param sep separator between key and value
+#' @param key_loc key location
+#' @param value_loc value location
+#'
+#' @return a named character vector
+#' @export
+#'
+#' @examples extract_kv(c("x: 1", "y: 2"))
+extract_kv <- function(v, sep = ": ", key_loc = 1, value_loc = 2) {
+  df <- v %>%
+    stringr::str_split(sep) %>%
+    data.frame()
+  key <- unname(unlist(df[key_loc, ]))
+  value <- unname(unlist(df[value_loc, ]) %>% as.character())
+  names(value) <- key
+
+  return(value)
+}
+
+
+#' farthest point sampling (FPS) for a vector
+#'
+#' @param v vector
+#' @param n sample size
+#'
+#' @return sampled vector
+#' @export
+#'
+#' @examples fps_vector(1:10, 4)
+fps_vector <- function(v, n) {
+  len <- length(v)
+
+  if (n == 1) {
+    return(v[1])
+  } else if (n > len) {
+    stop("Sample size over length!")
+  }
+
+  # compute intervals
+  all_intervals <- len - n
+  assign_interval <- rep(floor(all_intervals / (n - 1)), n - 1)
+  add_assign <- all_intervals - sum(assign_interval)
+  if (add_assign > 0) {
+    assign_interval[1:add_assign] <- assign_interval[1:add_assign] + 1
+  }
+  # return
+  indices <- purrr::accumulate(c(1, assign_interval + 1), sum)
+  return(v[indices])
+}

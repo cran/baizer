@@ -42,25 +42,26 @@ signif_string <- function(x, digits = 2) {
 #' @return all zero or not
 #' @export
 #'
-#' @examples is.zero("0.00")
+#' @examples is.zero(c("0.000", "0.102", NA))
 is.zero <- function(x) {
-  if (!is.null(x)) {
-    x <- as.character(x)
-    if (is.na(x)) {
-      return(NA)
-    } else if (!stringr::str_detect(x, "^[\\d\\.]+$")) {
-      stop("No a number!")
-    } else {
-      r <- stringr::str_match_all(x, "\\d") %>%
-        unlist() %>%
-        as.integer() %>%
-        sum() == 0
-      return(r)
+  ifelse(
+    is.null(x),
+    return(x),
+    {
+      x <- as.character(x)
+      ifelse(!stringr::str_detect(x, "^[\\d\\.]+$"),
+        stop("No a number!"),
+        {
+          res <- ifelse(is.na(x), NA,
+            stringr::str_detect(x, "^[0\\.]+$")
+          )
+          return(res)
+        }
+      )
     }
-  } else {
-    return(NULL)
-  }
+  )
 }
+
 
 
 
@@ -166,6 +167,30 @@ number_fun_wrapper <- function(x, fun = ~.x, prefix_ext = NULL,
     purrr::map_chr(~ fun(.x) %>% as.character())
 
   res <- stringr::str_c(match[, 2], modify_number, match[, 4])
+
+  return(res)
+}
+
+
+#' expand a number vector according to the adjacent two numbers
+#'
+#' @param v number vector
+#' @param n_div how many divisions expanded by two numbers
+#' @param .unique only keep unique numbers
+#'
+#' @return new number vector
+#' @export
+#'
+#' @examples adjacent_div(10^c(1:3), n_div = 10)
+adjacent_div <- function(v, n_div = 10, .unique = FALSE) {
+  res <- purrr::map2(
+    v[1:(length(v) - 1)], v[2:length(v)],
+    ~ seq(.x, .y, length.out = n_div)
+  ) %>% unlist()
+
+  if (.unique == TRUE) {
+    res <- unique(res)
+  }
 
   return(res)
 }
