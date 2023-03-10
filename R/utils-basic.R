@@ -55,34 +55,116 @@ collapse_vector <- function(named_vector, front_name = TRUE, collapse = ",") {
 }
 
 
-#' the index of nth different character
+#' the index of different character
 #'
 #' @param s1 string1
 #' @param s2 string2
-#' @param nth return the index of nth different character.
-#' if `0` return all the indices
-#'
-#' @return the index of differences
+#' @param nth just return nth index
+#' @param ignore_case ignore upper or lower cases
+#' @return list of different character indices
 #' @export
 #'
-#' @examples diff_index("ATTC", "ATAC")
-diff_index <- function(s1, s2, nth = 0) {
-  if (length(s1) != 1 || length(s2) != 1) {
-    stop("Need 1 length character!")
+#' @examples diff_index("AAAA", "ABBA")
+diff_index <- function(s1, s2, nth = NULL, ignore_case = FALSE) {
+  if (ignore_case == TRUE) {
+    s1 <- stringr::str_to_upper(s1)
+    s2 <- stringr::str_to_upper(s2)
   }
-  if (nchar(s1) != nchar(s2)) {
-    stop("Need strings of same nchar")
+  if (any(nchar(s1) != nchar(s2))) {
+    dif_nchar <- which(nchar(s1) != nchar(s2))
+    stop(
+      stringr::str_c(
+        c("strings have different nchar:", dif_nchar),
+        collapse = " "
+      )
+    )
   }
-  diff_index <- which(
-    unlist(stringr::str_split(s1, "")) != unlist(stringr::str_split(s2, ""))
-  )
-  if (nth == 0) {
-    return(diff_index)
-  } else if (nth > 0) {
-    return(diff_index[nth])
+
+  idx <- purrr::map2(
+    stringr::str_split(s1, ""),
+    stringr::str_split(s2, ""), `!=`
+  ) %>%
+    purrr::map(which)
+
+  if (is.null(nth)) {
+    return(idx)
+  } else {
+    res <- purrr::map(idx, ~ .x[nth], .default = NA)
+    return(res)
   }
 }
 
+
+#' the index of identical character
+#'
+#' @param s1 string1
+#' @param s2 string2
+#' @param nth just return nth index
+#' @param ignore_case ignore upper or lower cases
+#' @return list of identical character indices
+#' @export
+#'
+#' @examples same_index("AAAA", "ABBA")
+same_index <- function(s1, s2, nth = NULL, ignore_case = FALSE) {
+  if (ignore_case == TRUE) {
+    s1 <- stringr::str_to_upper(s1)
+    s2 <- stringr::str_to_upper(s2)
+  }
+  if (any(nchar(s1) != nchar(s2))) {
+    dif_nchar <- which(nchar(s1) != nchar(s2))
+    stop(
+      stringr::str_c(c("strings have different nchar:", dif_nchar),
+        collapse = " "
+      )
+    )
+  }
+
+  idx <- purrr::map2(
+    stringr::str_split(s1, ""),
+    stringr::str_split(s2, ""), `==`
+  ) %>%
+    purrr::map(which)
+
+  if (is.null(nth)) {
+    return(idx)
+  } else {
+    res <- purrr::map(idx, ~ .x[nth], .default = NA)
+    return(res)
+  }
+}
+
+
+#' fetch character from strings
+#'
+#' @param s strings
+#' @param index_list index of nth character,
+#' can be output of `diff_index` or `same_index`
+#' @param na.rm remove NA values from results or not
+#' @param collapse optional string used to combine
+#' the characters from a same string
+#'
+#' @return list of characters
+#' @export
+#'
+#' @examples fetch_char(rep("ABC", 3), list(1, 2, 3))
+fetch_char <- function(s, index_list, na.rm = FALSE, collapse = FALSE) {
+  res <- purrr::map2(
+    s, index_list,
+    ~ {
+      stringr::str_sub(.x, .y, .y)
+    }
+  )
+
+  if (na.rm == TRUE) {
+    res <- res %>% purrr::map(~ .x[!is.na(.x)])
+  }
+
+  if (collapse != FALSE) {
+    res <- res %>% purrr::map(~ stringr::str_c(.x, collapse = collapse))
+  }
+
+  return(res)
+}
 
 
 #' trans fixed string into regular expression string
@@ -160,28 +242,23 @@ extract_kv <- function(v, sep = ": ", key_loc = 1, value_loc = 2) {
 #'
 #' @param v vector
 #' @param n sample size
+#' @param method `round|floor|ceiling`, the method used when trans to integer
 #'
 #' @return sampled vector
 #' @export
 #'
 #' @examples fps_vector(1:10, 4)
-fps_vector <- function(v, n) {
+fps_vector <- function(v, n, method = "round") {
   len <- length(v)
-
-  if (n == 1) {
-    return(v[1])
-  } else if (n > len) {
-    stop("Sample size over length!")
+  stopifnot(n <= len)
+  idx <- seq(1, len, length.out = n)
+  if (method == "round") {
+    idx <- round(idx)
+  } else if (method == "floor") {
+    idx <- floor(idx)
+  } else if (method == "ceiling") {
+    idx <- ceiling(idx)
   }
 
-  # compute intervals
-  all_intervals <- len - n
-  assign_interval <- rep(floor(all_intervals / (n - 1)), n - 1)
-  add_assign <- all_intervals - sum(assign_interval)
-  if (add_assign > 0) {
-    assign_interval[1:add_assign] <- assign_interval[1:add_assign] + 1
-  }
-  # return
-  indices <- purrr::accumulate(c(1, assign_interval + 1), sum)
-  return(v[indices])
+  return(v[idx])
 }

@@ -36,12 +36,70 @@ test_that("collapse_vector", {
 
 
 test_that("diff_index", {
-  expect_identical(diff_index("ATTC", "ATAC"), as.integer(3))
-  expect_identical(diff_index("AATC", "ATAC"), as.integer(c(2, 3)))
-  expect_identical(diff_index("AATC", "ATAC", 2), as.integer(3))
-  expect_identical(diff_index("AATC", "ATAC", 10), NA_integer_)
-  expect_error(diff_index("AATC", c("ATAC", "AAGC")))
-  expect_error(diff_index("AATC", "ACT"))
+  expect_identical(diff_index("AAAA", "ABBA"), list(as.integer(c(2, 3))))
+  expect_identical(
+    diff_index("AAAA", "abba", ignore_case = TRUE),
+    list(as.integer(c(2, 3)))
+  )
+  expect_identical(diff_index("AAAA", "ABBA", 2), list(as.integer(3)))
+  expect_identical(diff_index("AAAA", "ABBB", 2:3), list(as.integer(c(3, 4))))
+  expect_identical(diff_index("AAAA", "ABBA", 10), list(NA_integer_))
+  expect_identical(
+    diff_index(c("ABBA", "AABB"), "AAAA"),
+    list(as.integer(c(2, 3)), as.integer(c(3, 4)))
+  )
+  expect_identical(
+    diff_index(c("ABBB", "BBBA"), "AAAA", nth = c(1, 3)),
+    list(as.integer(c(2, 4)), as.integer(c(1, 3)))
+  )
+  expect_error(diff_index("AAAA", "AAB"))
+})
+
+test_that("same_index", {
+  expect_identical(same_index("AAAA", "ABBA"), list(as.integer(c(1, 4))))
+  expect_identical(
+    same_index("AAAA", "abba", ignore_case = TRUE),
+    list(as.integer(c(1, 4)))
+  )
+  expect_identical(same_index("AAAA", "ABBA", 2), list(as.integer(4)))
+  expect_identical(same_index("AAAA", "ABAA", 2:3), list(as.integer(c(3, 4))))
+  expect_identical(same_index("AAAA", "ABBA", 10), list(NA_integer_))
+  expect_identical(
+    same_index(c("ABBA", "AABB"), "AAAA"),
+    list(as.integer(c(1, 4)), as.integer(c(1, 2)))
+  )
+  expect_identical(
+    same_index(c("BAAA", "AAAB"), "AAAA", nth = c(1, 3)),
+    list(as.integer(c(2, 4)), as.integer(c(1, 3)))
+  )
+  expect_error(same_index("AAAA", "AAB"))
+})
+
+test_that("fetch_char", {
+  expect_identical(
+    fetch_char(rep("ABC", 3), list(1, 2, 3)),
+    list("A", "B", "C")
+  )
+  str1 <- c("ABCD", "AAEF")
+  str2 <- c("AAAA", "AAAA")
+  expect_identical(
+    fetch_char(str1, diff_index(str1, str2)),
+    list(c("B", "C", "D"), c("E", "F"))
+  )
+  expect_identical(
+    fetch_char(str1, diff_index(str1, str2, nth = 1:3), na.rm = FALSE),
+    list(c("B", "C", "D"), c("E", "F", NA))
+  )
+  expect_identical(
+    fetch_char(str1, diff_index(str1, str2, nth = 1:5), na.rm = TRUE),
+    list(c("B", "C", "D"), c("E", "F"))
+  )
+  expect_identical(
+    fetch_char(str1, diff_index(str1, str2, nth = 1:5),
+      na.rm = TRUE, collapse = ","
+    ),
+    list(c("B,C,D"), c("E,F"))
+  )
 })
 
 

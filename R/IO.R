@@ -1,3 +1,46 @@
+
+#' load packages as a batch
+#'
+#' @param ... pkgs
+#'
+#' @return nothing
+#' @export
+#'
+#' @examples baizer::pkglib(dplyr, purrr, tidyr)
+pkglib <- function(...) {
+  pkgs <- rlang::enexprs(...)
+  purrr::walk(pkgs, ~ library(deparse(.x), character.only = TRUE))
+}
+
+
+#' get the command line arguments
+#'
+#' @param x one of 'wd, R_env, script_path, script_dir, env_configs'
+#'
+#' @return list of all arguments, or single value of select argument
+#' @export
+#'
+#' @examples cmdargs()
+cmdargs <- function(x = NULL) {
+  res <- list()
+  res$wd <- getwd()
+  res$R_env <- commandArgs() %>% grep("^RStudio|/R$", ., value = TRUE)
+  res$script_path <- commandArgs() %>%
+    grep("^--file=", ., value = TRUE) %>%
+    stringr::str_replace("^--file=", "")
+  res$script_dir <- res$script_path %>% stringr::str_replace("/[^/]+$", "")
+  res$env_configs <- list(commandArgs(), res$R_env, res$script_path) %>%
+    purrr::reduce(setdiff)
+
+  if (is.null(x)) {
+    return(res)
+  } else {
+    return(res[[x]])
+  }
+}
+
+
+
 #' write a tibble into an excel file
 #'
 #' @param df tibble or a list of tibbles
