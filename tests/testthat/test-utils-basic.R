@@ -132,3 +132,125 @@ test_that("fps_vector", {
   expect_error(fps_vector(1:10, 12))
   expect_error(fps_vector(1, 2, NULL, 3))
 })
+
+
+
+test_that("atomic_expr", {
+  expect_identical(atomic_expr(expr(x)), TRUE)
+  expect_identical(atomic_expr(expr(!x)), TRUE)
+  expect_identical(atomic_expr(expr(x + y)), TRUE)
+  expect_identical(atomic_expr(expr(x > 1)), TRUE)
+  expect_identical(atomic_expr(expr(x & y)), TRUE)
+  expect_identical(atomic_expr(expr(!x & y)), FALSE)
+  expect_identical(atomic_expr(expr(!x + y)), FALSE)
+  expect_identical(atomic_expr(expr(x > 1 | y < 2)), FALSE)
+})
+
+
+
+test_that("expr_pileup", {
+  ex <- expr(a == 2 & b == 3 | !b & x + 2)
+  expect_identical(
+    expr_pileup(ex),
+    c("|", "&", "a == 2", "b == 3", "&", "!b", "x + 2")
+  )
+})
+
+
+test_that("split_vector", {
+  expect_identical(split_vector(1:10, c(3, 7)), list(1:3, 4:7, 8:10))
+  expect_identical(
+    split_vector(stringr::str_split("ABCDEFGHIJ", "") %>% unlist(),
+      c(3, 7),
+      bounds = "[)"
+    ),
+    list(c("A", "B"), c("C", "D", "E", "F"), c("G", "H", "I", "J"))
+  )
+})
+
+
+test_that("reg_match", {
+  v <- stringr::str_c("id", 1:3, c("A", "B", "C"))
+  expect_identical(reg_match(v, "id(\\d+)(\\w)"), c("1", "2", "3"))
+  expect_identical(reg_match(v, "id(\\d+)(\\w)", group = 2), c("A", "B", "C"))
+  expect_identical(
+    reg_match(v, "id(\\d+)(\\w)", group = -1),
+    tibble(
+      match = v,
+      group1 = c("1", "2", "3"),
+      group2 = c("A", "B", "C")
+    )
+  )
+})
+
+test_that("group_vector", {
+  v <- c(
+    "A11", "A10", "A102", "A101", "A1", "B10", "A9", "B32", "B1", "A99",
+    "A12", "B21", "B102", "B2", "B9", "A2", "B101", "B99"
+  )
+
+  expect_identical(
+    group_vector(v),
+    list(
+      A = c("A11", "A10", "A102", "A101", "A1", "A9", "A99", "A12", "A2"),
+      B = c("B10", "B32", "B1", "B21", "B102", "B2", "B9", "B101", "B99")
+    )
+  )
+
+  expect_identical(
+    group_vector(v, pattern = "\\w\\d"),
+    list(
+      A1 = c("A11", "A10", "A102", "A101", "A1", "A12"),
+      A2 = c("A2"),
+      A9 = c("A9", "A99"),
+      B1 = c("B10", "B1", "B102", "B101"),
+      B2 = c("B21", "B2"),
+      B3 = c("B32"),
+      B9 = c("B9", "B99")
+    )
+  )
+
+  expect_identical(
+    group_vector(v, pattern = "\\d"),
+    group_vector(v, pattern = "\\w(\\d)")
+  )
+
+  expect_identical(
+    group_vector(v, pattern = "\\d{2}"),
+    list(
+      `10` = c("A10", "A102", "A101", "B10", "B102", "B101"),
+      `11` = c("A11"),
+      `12` = c("A12"),
+      `21` = c("B21"),
+      `32` = c("B32"),
+      `99` = c("A99", "B99"),
+      unmatch = c("A1", "A9", "B1", "B2", "B9", "A2")
+    )
+  )
+})
+
+
+test_that("sortf", {
+  expect_identical(sortf(c(-2, 1, 3), abs), c(1, -2, 3))
+  v <- stringr::str_c("id", c(1, 2, 9, 10, 11, 12, 99, 101, 102)) %>% sample()
+  expect_identical(
+    sortf(v, function(x) reg_match(x, "\\d+") %>% as.double()),
+    c("id1", "id2", "id9", "id10", "id11", "id12", "id99", "id101", "id102")
+  )
+  expect_identical(
+    sortf(v, function(x) reg_match(x, "\\d+") %>% as.double()),
+    sortf(v, ~ reg_match(.x, "\\d+") %>% as.double())
+  )
+
+  v <- c(
+    stringr::str_c("A", c(1, 2, 9, 10, 11, 12, 99, 101, 102)),
+    stringr::str_c("B", c(1, 2, 9, 10, 21, 32, 99, 101, 102))
+  ) %>% sample()
+  expect_identical(
+    sortf(v, ~ reg_match(.x, "\\d+") %>% as.double(), group_pattern = "\\w"),
+    c(
+      "A1", "A2", "A9", "A10", "A11", "A12", "A99", "A101", "A102",
+      "B1", "B2", "B9", "B10", "B21", "B32", "B99", "B101", "B102"
+    )
+  )
+})

@@ -1,6 +1,6 @@
 Package: baizer
 Title: Useful Functions for Data Processing
-Version: 0.3.0
+Version: 0.4.0
 Authors@R: 
     person("William", "Song", , "william_swl@163.com", role = c("aut", "cre"))
 Description: In ancient Chinese mythology, Bai Ze is a divine creature that knows the needs of everything.
@@ -9,17 +9,17 @@ Description: In ancient Chinese mythology, Bai Ze is a divine creature that know
 License: MIT + file LICENSE
 Encoding: UTF-8
 RoxygenNote: 7.2.3
-Imports: dplyr (>= 1.1.0), magrittr, openxlsx, purrr, rlang, rstatix,
-        stats, stringr, tibble, tidyselect
-Suggests: car (>= 0.5.1), covr, testthat (>= 3.0.0)
+Imports: curl, dplyr (>= 1.1.0), magrittr, openxlsx, purrr, rlang (>=
+        0.4.11), rstatix, stats, stringr, tibble (>= 3.1), tidyselect
+Suggests: covr, roxygen2, testthat (>= 3.0.0), withr
 Config/testthat/edition: 3
 Depends: R (>= 3.5.0)
 LazyData: true
 URL: https://github.com/william-swl/baizer
 BugReports: https://github.com/william-swl/baizer/issues
 NeedsCompilation: no
-Packaged: 2023-03-10 11:52:51 UTC; william
+Packaged: 2023-04-11 09:08:43 UTC; william
 Author: William Song [aut, cre]
 Maintainer: William Song <william_swl@163.com>
 Repository: CRAN
-Date/Publication: 2023-03-10 12:30:02 UTC
+Date/Publication: 2023-04-11 09:40:05 UTC

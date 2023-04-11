@@ -262,3 +262,251 @@ fps_vector <- function(v, n, method = "round") {
 
   return(v[idx])
 }
+
+
+
+
+#' whether the expression is an atomic one
+#'
+#' @param ex expression
+#'
+#' @return logical value
+#' @export
+#'
+#' @examples
+#' atomic_expr(rlang::expr(x))
+#'
+#' atomic_expr(rlang::expr(!x))
+#'
+#' atomic_expr(rlang::expr(x + y))
+#'
+#' atomic_expr(rlang::expr(x > 1))
+#'
+#' atomic_expr(rlang::expr(!x + y))
+#'
+#' atomic_expr(rlang::expr(x > 1 | y < 2))
+#'
+atomic_expr <- function(ex) {
+  if (!is_expression(ex)) {
+    stop("not an expression object!")
+  }
+
+  if (length(ex) > 1) {
+    if (purrr::map_lgl(as.list(ex), ~ length(.x) == 1) %>% all() == TRUE) {
+      return(TRUE)
+    } else {
+      return(FALSE)
+    }
+  } else if (length(ex) == 1) {
+    return(TRUE)
+  } else {
+    stop("error!")
+  }
+}
+
+
+
+#' pileup the subexpressions which is atomic
+#'
+#' @param ex expression
+#'
+#' @return the character vector of subexpressions
+#' @export
+#'
+#' @examples
+#' ex <- rlang::expr(a == 2 & b == 3 | !b & x + 2)
+#' expr_pileup(ex)
+#'
+expr_pileup <- function(ex) {
+  if (!is_expression(ex)) {
+    stop("not an expression object!")
+  }
+
+  if (atomic_expr(ex)) {
+    return(deparse(ex))
+  }
+
+  res <- c()
+  for (i in as.list(ex)) {
+    if (atomic_expr(i)) {
+      res <- c(res, deparse(i))
+    } else {
+      res <- c(res, expr_pileup(i))
+    }
+  }
+
+  return(res)
+}
+
+
+#' regex match
+#'
+#' @param x vector
+#' @param pattern regex pattern
+#' @param group regex gruop, 1 as default. when group=-1,
+#' return full matched tibble
+#'
+#' @return vector or tibble
+#' @export
+#'
+#' @examples
+#' v <- stringr::str_c("id", 1:3, c("A", "B", "C"))
+#'
+#' reg_match(v, "id(\\d+)(\\w)")
+#'
+#' reg_match(v, "id(\\d+)(\\w)", group = 2)
+#'
+#' reg_match(v, "id(\\d+)(\\w)", group = -1)
+#'
+reg_match <- function(x, pattern, group = 1) {
+  res <- suppressMessages(
+    stringr::str_match(x, pattern) %>%
+      tibble::as_tibble(.name_repair = "unique")
+  )
+  res <- res %>% rlang::set_names(c(
+    "match",
+    stringr::str_c("group", seq_along(colnames(res))[-ncol(res)])
+  ))
+  if (group == -1) {
+    return(res)
+  } else if (ncol(res) == 1) {
+    return(dplyr::pull(res, 1))
+  } else {
+    return(dplyr::pull(res, group + 1))
+  }
+}
+
+
+
+#' split vector into list
+#'
+#' @param vector vector
+#' @param breaks split breaks
+#' @param bounds "(]" as default, can also be "[), []"
+#'
+#' @return list
+#' @export
+#'
+#' @examples
+#' split_vector(1:10, c(3, 7))
+#' split_vector(stringr::str_split("ABCDEFGHIJ", "") %>% unlist(),
+#'   c(3, 7),
+#'   bounds = "[)"
+#' )
+split_vector <- function(vector, breaks, bounds = "(]") {
+  margins <- c(1, breaks, length(vector))
+
+  split_index <- purrr::map2(
+    margins[seq_along(margins)[-length(margins)]],
+    margins[seq_along(margins)[-1]],
+    ~ .x:.y
+  )
+
+  if (bounds == "(]") {
+    process_index <- seq_along(split_index)[-1]
+    split_index[process_index] <- split_index[process_index] %>%
+      purrr::map(~ .x[-1])
+  } else if (bounds == "[)") {
+    process_index <- seq_along(split_index)[-length(split_index)]
+    split_index[process_index] <- split_index[process_index] %>%
+      purrr::map(~ .x[-length(.x)])
+  }
+
+  purrr::map(split_index, ~ vector[.x])
+}
+
+#' group chracter vector by a regex pattern
+#'
+#' @param x character vector
+#' @param pattern regex pattern, '\\w' as default
+#'
+#' @return list
+#' @export
+#'
+#' @examples
+#' v <- c(
+#'   stringr::str_c("A", c(1, 2, 9, 10, 11, 12, 99, 101, 102)),
+#'   stringr::str_c("B", c(1, 2, 9, 10, 21, 32, 99, 101, 102))
+#' ) %>% sample()
+#'
+#' group_vector(v)
+#'
+#' group_vector(v, pattern = "\\w\\d")
+#'
+#' group_vector(v, pattern = "\\w(\\d)")
+#'
+#' # unmatched part will alse be stored
+#' group_vector(v, pattern = "\\d{2}")
+#'
+group_vector <- function(x, pattern = "\\w") {
+  if (!is.character(x)) {
+    stop("x must be a character vector")
+  }
+
+  # matched part and unmatched part
+  reg_result <- x %>% reg_match(pattern)
+  match <- reg_result[!is.na(reg_result)]
+  x_match <- x[!is.na(reg_result)] # nolint
+  unmatch <- reg_result[is.na(reg_result)]
+  x_unmatch <- x[is.na(reg_result)]
+
+  group <- match %>%
+    unique() %>%
+    sort()
+  res <- group %>% purrr::map(~ x_match[match == .x])
+  names(res) <- group
+
+  if (length(unmatch) > 0) {
+    res <- c(res, list(unmatch = x_unmatch))
+  }
+
+  return(res)
+}
+
+
+#' sort by a function
+#'
+#' @param x vector
+#' @param func a function used by the sort
+#' @param group_pattern a regex pattern to group by, only aviable if x is a
+#' character vector
+#'
+#' @return vector
+#' @export
+#'
+#' @examples
+#' sortf(c(-2, 1, 3), abs)
+#'
+#' v <- stringr::str_c("id", c(1, 2, 9, 10, 11, 12, 99, 101, 102)) %>% sample()
+#'
+#' sortf(v, function(x) reg_match(x, "\\d+") %>% as.double())
+#'
+#' sortf(v, ~ reg_match(.x, "\\d+") %>% as.double())
+#'
+#' v <- c(
+#'   stringr::str_c("A", c(1, 2, 9, 10, 11, 12, 99, 101, 102)),
+#'   stringr::str_c("B", c(1, 2, 9, 10, 21, 32, 99, 101, 102))
+#' ) %>% sample()
+#'
+#' sortf(v, ~ reg_match(.x, "\\d+") %>% as.double(), group_pattern = "\\w")
+#'
+sortf <- function(x, func, group_pattern = NULL) {
+  if (!is.null(group_pattern) && is.character(x)) {
+    x <- group_vector(x, group_pattern)
+    sort_ord <- x %>%
+      purrr::map(func) %>%
+      purrr::map(order)
+    res <- purrr::map2(x, sort_ord, ~ .x[.y]) %>%
+      unlist() %>%
+      unname()
+  } else {
+    sort_ord <- x %>%
+      purrr::map(func) %>%
+      unlist() %>%
+      order()
+    res <- x[sort_ord]
+  }
+
+
+  return(res)
+}
