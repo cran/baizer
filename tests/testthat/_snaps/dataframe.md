@@ -1325,3 +1325,27 @@
        99 id-99  15351 14000 16000     8
       100 id-100  6344  6000  8000     4
 
+# as_tibble_md
+
+    Code
+      as_tibble_md(x)
+    Output
+      # A tibble: 2 x 3
+        col1  col2  col3 
+        <chr> <chr> <chr>
+      1 v1    v2    v3   
+      2 r1    r2    r3   
+
+# as_md_table
+
+    Code
+      mini_diamond %>% head(5) %>% as_md_table()
+    Output
+      | id | carat | cut | clarity | price | x | y |
+      | - | - | - | - | - | - | - |
+      | id-1 | 1.02 | Fair | SI1 |  3027 | 6.25 | 6.18 |
+      | id-2 | 1.51 | Good | VS2 | 11746 | 7.27 | 7.18 |
+      | id-3 | 0.52 | Ideal | VVS1 |  2029 | 5.15 | 5.18 |
+      | id-4 | 1.54 | Ideal | SI2 |  9452 | 7.43 | 7.45 |
+      | id-5 | 0.72 | Ideal | VS1 |  2498 | 5.73 | 5.77 |
+

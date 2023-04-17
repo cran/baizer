@@ -354,3 +354,150 @@ hist_bins <- function(x, bins = 10, lim = c(min(x), max(x)),
 
   return(dfres)
 }
+
+
+
+#' trans a table in markdown format into tibble
+#'
+#' @param x character string
+#'
+#' @return tibble
+#' @export
+#'
+#' @examples
+#'
+#' x <- "
+#' col1 | col2 | col3 |
+#' | ---- | ---- | ---- |
+#' | v1   | v2   | v3   |
+#' | r1   | r2   | r3   |
+#' "
+#'
+#' as_tibble_md(x)
+#'
+as_tibble_md <- function(x) {
+  if (length(x) > 1) {
+    stop("input shoule be a string!")
+  }
+
+  mdlist <- x %>%
+    # remove blank on two sides
+    stringr::str_replace_all(c("^\\s+?" = "", "\\s+?$" = "")) %>%
+    # clean header sep row
+    stringr::str_replace_all(c("\n[\\|\\t -]+?\n" = "\n")) %>%
+    # row sep
+    stringr::str_replace_all(c("\\t* *\\|\\t* *\n\\t* *\\|\\t* *" = "\n")) %>%
+    # clean extra blank characters
+    stringr::str_replace_all(c("\\|\\t* *" = "\\|", "\\t* *\\|" = "\\|")) %>%
+    # remove first and last |
+    stringr::str_replace_all(c("^\\|" = "", "\\|$" = "")) %>%
+    # delim
+    stringr::str_replace_all("\\|", "\t") %>%
+    # sep row
+    stringr::str_split("\n") %>%
+    unlist() %>%
+    # sep col
+    stringr::str_split("\t")
+
+  md_names <- mdlist[[1]]
+
+  md_tb <- mdlist[-1]
+
+  res <- md_tb %>%
+    purrr::map_dfr(function(x) {
+      names(x) <- md_names
+      x <- tibble::as_tibble_row(x)
+      return(x)
+    })
+
+  return(res)
+}
+
+
+#' trans a tibble into markdown format table
+#'
+#' @param x tibble
+#' @param show show result instead of return the markdown string, TRUE as
+#' default
+#'
+#' @return NULL or markdown string
+#' @export
+#'
+#' @examples
+#'
+#' mini_diamond %>%
+#'   head(5) %>%
+#'   as_md_table()
+#'
+as_md_table <- function(x, show = TRUE) {
+  if (!is.data.frame(x)) {
+    stop("input should be a tibble")
+  }
+
+  header_row <- colnames(x)
+
+  sep_row <- rep("-", ncol(x))
+
+  mdlist <- x %>% t()
+  colnames(mdlist) <- stringr::str_c("c", seq_along(x[[1]]))
+  mdlist <- mdlist %>%
+    as_tibble() %>%
+    as.list()
+
+  mdlist <- c(list(header_row, sep_row), mdlist)
+
+  res <- mdlist %>%
+    purrr::map_chr(
+      ~ stringr::str_c(.x, collapse = " | ") %>%
+        stringr::str_c("| ", ., " |")
+    ) %>%
+    stringr::str_c(collapse = "\n")
+  if (show == TRUE) {
+    cat(res)
+  } else {
+    return(res)
+  }
+}
+
+
+
+#' relevel a target column by another reference column
+#'
+#' @param x tibble
+#' @param col target column
+#' @param ref reference column
+#'
+#' @return tibble
+#' @export
+#'
+#' @examples
+#'
+#' cut_level <- mini_diamond %>%
+#'   dplyr::pull(cut) %>%
+#'   unique()
+#'
+#' mini_diamond %>%
+#'   dplyr::mutate(cut = factor(cut, cut_level)) %>%
+#'   dplyr::mutate(cut0 = stringr::str_c(cut, "xxx")) %>%
+#'   ref_level(cut0, cut)
+ref_level <- function(x, col, ref) {
+  col <- enquo(col)
+  ref <- enquo(ref)
+
+  ref_levels <- levels(x[[quo_name(ref)]])
+  ref2col <- x %>%
+    dplyr::pull({{ col }}, {{ ref }}) %>%
+    uniq()
+
+  if (length(ref2col) != length(ref_levels)) {
+    diff <- setdiff(ref_levels, names(ref2col)) %>%
+      stringr::str_c(collapse = ", ")
+    stop(stringr::str_c("unmatched between ref and col: ", diff))
+  }
+
+  col_levels <- ref2col[ref_levels]
+
+  res <- x %>% dplyr::mutate(!!col := factor(!!col, levels = col_levels))
+
+  return(res)
+}

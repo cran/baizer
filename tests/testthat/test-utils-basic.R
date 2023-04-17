@@ -254,3 +254,19 @@ test_that("sortf", {
     )
   )
 })
+
+test_that("group_vector", {
+  v1 <- c(TRUE, FALSE, TRUE)
+  v2 <- c(FALSE, TRUE)
+  expect_identical(
+    pileup_logical(v1, v2), c(FALSE, FALSE, TRUE)
+  )
+})
+
+
+test_that("uniq", {
+  v <- c(a = 1, b = 2, c = 3, b = 2, a = 1)
+  expect_identical(
+    uniq(v), c(a = 1, b = 2, c = 3)
+  )
+})

@@ -1,3 +1,16 @@
+#' load packages as a batch
+#'
+#' @param ... pkgs
+#'
+#' @return nothing
+#' @export
+#'
+#' @examples baizer::pkglib(dplyr, purrr, tidyr)
+pkglib <- function(...) {
+  pkgs <- rlang::enexprs(...)
+  purrr::walk(pkgs, ~ library(deparse(.x), character.only = TRUE))
+}
+
 
 #' not in calculation operator
 #'
@@ -509,4 +522,78 @@ sortf <- function(x, func, group_pattern = NULL) {
 
 
   return(res)
+}
+
+
+#' pileup another logical vector on the TRUE values of first vector
+#'
+#' @param x logical vector
+#' @param v another logical vector
+#'
+#' @return logical vector
+#' @export
+#'
+#' @examples
+#'
+#' # first vector have 2 TRUE value
+#' v1 <- c(TRUE, FALSE, TRUE)
+#'
+#' # the length of second vector should also be 2
+#' v2 <- c(FALSE, TRUE)
+#'
+#' pileup_logical(v1, v2)
+#'
+pileup_logical <- function(x, v) {
+  if (length(v) != sum(x)) {
+    stop("the length of v does not equal to the number of TRUE in x!")
+  }
+
+  if (sum(x) == 0) {
+    return(x)
+  }
+
+  vord <- c()
+  ord <- 1
+  for (i in x) {
+    if (i) {
+      vord <- c(vord, ord)
+      ord <- ord + 1
+    } else {
+      vord <- c(vord, FALSE)
+    }
+  }
+
+  v_expand <- purrr::map_lgl(
+    vord,
+    function(t) {
+      if (t != 0) {
+        v[t]
+      } else {
+        FALSE
+      }
+    }
+  )
+
+  res <- x & v_expand
+
+  return(res)
+}
+
+
+
+#' only keep unique vector values and its names
+#'
+#' @param x vector
+#'
+#' @return vector
+#' @export
+#'
+#' @examples
+#'
+#' x <- c(a = 1, b = 2, c = 3, b = 2, a = 1)
+#'
+#' uniq(x)
+#'
+uniq <- function(x) {
+  return(x[-which(duplicated(x))])
 }

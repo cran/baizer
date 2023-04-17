@@ -173,3 +173,31 @@ test_that("hist_bins, breaks", {
   expect_snapshot(hist_bins(vector, breaks = seq(0, 20000, length.out = 11)) %>%
     print(n = Inf))
 })
+
+
+test_that("as_tibble_md", {
+  x <- "
+  | col1 | col2 | col3 |
+  | ---- | ---- | ---- |
+  | v1   | v2   | v3   |
+  | r1   | r2   | r3   |
+  "
+  expect_snapshot(as_tibble_md(x))
+})
+
+
+test_that("as_md_table", {
+  expect_snapshot(mini_diamond %>% head(5) %>% as_md_table())
+})
+
+
+test_that("ref_level", {
+  cut_level <- mini_diamond %>%
+    dplyr::pull(cut) %>%
+    unique()
+  df <- mini_diamond %>%
+    dplyr::mutate(cut = factor(cut, cut_level)) %>%
+    dplyr::mutate(cut0 = stringr::str_c(cut, "xxx")) %>%
+    ref_level(cut0, cut)
+  expect_identical(levels(df$cut0), stringr::str_c(levels(df$cut), "xxx"))
+})
