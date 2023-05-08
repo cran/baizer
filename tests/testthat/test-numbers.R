@@ -41,6 +41,9 @@ test_that("round_string", {
     round_string(c(0.2651, 26.51), c(2, 0)),
     c("0.27", "27")
   )
+  expect_identical(
+    is.na(round_string(c(NA, NULL, NA))), c(TRUE, TRUE)
+  )
 })
 
 
@@ -75,6 +78,31 @@ test_that("signif_string", {
   expect_identical(
     signif_string(c(0.2651, 26.51, 2651), 2),
     c("0.27", "27", "2700")
+  )
+  expect_identical(
+    is.na(signif_string(c(NA, NULL, NA))), c(TRUE, TRUE)
+  )
+})
+
+test_that("signif_floor", {
+  expect_identical(
+    signif_floor(c(78351, -78351, 3.79879, -3.79879, 0.003124), 3),
+    c(78300, -78400, 3.79, -3.8, 0.00312)
+  )
+  expect_identical(
+    signif_floor(c(78351.1543, -78351.1543, 3.79879, -3.79879), 7),
+    c(78351.15, -78351.16, 3.79879, -3.79879)
+  )
+})
+
+test_that("signif_ceiling", {
+  expect_identical(
+    signif_ceiling(c(78321, -78321, 3.1234, -3.1234, 0.003124), 3),
+    c(78400, -78300, 3.13, -3.12, 0.00313)
+  )
+  expect_identical(
+    signif_ceiling(c(78351.1543, -78351.1543, 3.79879, -3.79879), 7),
+    c(78351.16, -78351.15, 3.79879, -3.79879)
   )
 })
 
@@ -207,4 +235,55 @@ test_that("correct_ratio", {
     correct_ratio(c(10, 10), c(1, 4), digits = 1),
     c(2.5, 10.0)
   )
+})
+
+
+test_that("near_ticks", {
+  expect_identical(near_ticks(3462, level = 10), c(3460, 3465, 3470))
+  expect_identical(near_ticks(-3462, level = 10), c(-3470, -3465, -3460))
+  expect_equal(near_ticks(0.325, level = 0.1), c(0.3, 0.35, 0.4))
+  expect_equal(near_ticks(0.325, level = 0.01), c(0.32, 0.325, 0.33))
+})
+
+test_that("nearest_tick", {
+  expect_identical(nearest_tick(3462, level = 10), 3460)
+  expect_identical(nearest_tick(3462, level = 10, side = "right"), 3465)
+  expect_identical(nearest_tick(-3462, level = 10), -3460)
+  expect_identical(nearest_tick(-3463, level = 10), -3465)
+})
+
+test_that("generate_ticks", {
+  expect_identical(
+    generate_ticks(c(176, 264), expect_ticks = 10),
+    c(175, 185, 195, 205, 215, 225, 235, 245, 255, 265)
+  )
+  expect_identical(
+    generate_ticks(c(0.1, 11), expect_ticks = 5),
+    c(0, 5, 10, 15)
+  )
+})
+
+
+test_that("pos_int_split", {
+  expect_identical(pos_int_split(12, 3), c(4, 4, 4))
+  expect_identical(pos_int_split(11, 3), c(4, 4, 3))
+  expect_identical(pos_int_split(12, 3, method = c(1, 2, 3)), c(2, 4, 6))
+})
+
+
+test_that("gen_outlier", {
+  x <- seq(0, 100, 1)
+  iqr <- IQR(x)
+  high_threshold <- boxplot.stats(x)$stats[4] + 1.5 * iqr
+  low_threshold <- boxplot.stats(x)$stats[2] - 1.5 * iqr
+
+  o1 <- gen_outlier(x, 10, lim = c(-80, 160))
+  o2 <- gen_outlier(x, 10, lim = c(-80, 160), assign_n = c(0.1, 0.9))
+  o3 <- gen_outlier(x, 10, lim = c(-80, 160), side = "low")
+
+
+  expect_true(all((o1 >= -80 & o1 <= low_threshold) |
+    (o1 >= high_threshold & o1 <= 160)))
+  expect_true(which((o2 >= -80 & o2 <= low_threshold)) == 1)
+  expect_true(all((o3 >= -80 & o3 <= low_threshold)))
 })

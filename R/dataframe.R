@@ -305,7 +305,7 @@ remove_narow <- function(df, max_ratio = 1) {
 #'
 #' hist_bins(x, bins = 20)
 #'
-hist_bins <- function(x, bins = 10, lim = c(min(x), max(x)),
+hist_bins <- function(x, bins = 10, lim = c(min(x), max(x)), # nolint
                       breaks = NULL, sort = FALSE) {
   if (!is.numeric(x)) {
     stop("please use numerice vector!")
@@ -339,9 +339,12 @@ hist_bins <- function(x, bins = 10, lim = c(min(x), max(x)),
     dfvec <- as_tibble(x, rownames = "id")
   }
 
-  dfres <- dfvec %>% dplyr::left_join(dfbin, by = dplyr::join_by(
-    between(value, start, end, bounds = "(]") # nolint
-  ))
+  dfres <- dfvec %>% dplyr::left_join(
+    dfbin,
+    by = dplyr::join_by(
+      between(value, start, end, bounds = "(]") # nolint
+    )
+  )
 
   fill_row <- which(!is.na(dfres[["value"]]) & is.na(dfres[["bin"]]))
 
@@ -499,5 +502,59 @@ ref_level <- function(x, col, ref) {
 
   res <- x %>% dplyr::mutate(!!col := factor(!!col, levels = col_levels))
 
+  return(res)
+}
+
+
+#' count two columns as a cross-tabulation table
+#' @param df tibble
+#' @param row the column as rownames in the output
+#' @param col the column as colnames in the output
+#' @param method one of `n|count, rowr|row_ratio, colr|col_ratio`
+#' @param digits 	the digits of ratios
+#'
+#' @return data.frame
+#' @export
+#'
+#' @examples
+#' cross_count(mini_diamond, cut, clarity)
+#'
+#' # show the ratio in the row
+#' cross_count(mini_diamond, cut, clarity, method = "rowr")
+#'
+#' # show the ratio in the col
+#' cross_count(mini_diamond, cut, clarity, method = "colr")
+#'
+cross_count <- function(df, row, col, method = "n", digits = 2) {
+  row <- enquo(row)
+  col <- enquo(col)
+  if (quo_is_null(row) || quo_is_null(col)) {
+    stop("Please input row and column of the output!")
+  }
+
+  if (method %in% c("n", "count")) {
+    res <- df %>% fancy_count({{ row }}, {{ col }})
+    res <- res %>% pivot_wider(
+      id_cols = -all_of("r"),
+      names_from = {{ col }}, values_from = "n"
+    )
+  } else if (method %in% c("rowr", "row_ratio")) {
+    res <- df %>%
+      dplyr::group_by({{ row }}) %>%
+      fancy_count({{ row }}, {{ col }}, digits = digits)
+    res <- res %>% pivot_wider(
+      id_cols = -all_of("n"),
+      names_from = {{ col }}, values_from = "r"
+    )
+  } else if (method %in% c("colr", "col_ratio")) {
+    res <- df %>%
+      dplyr::group_by({{ col }}) %>%
+      fancy_count({{ row }}, {{ col }}, digits = digits)
+    res <- res %>% pivot_wider(
+      id_cols = -all_of("n"),
+      names_from = {{ col }}, values_from = "r"
+    )
+  }
+  res <- res %>% c2r(quo_name(row))
   return(res)
 }

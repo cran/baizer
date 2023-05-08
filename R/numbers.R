@@ -31,11 +31,12 @@ int_digits <- function(x, digits = 2, scale_factor = FALSE) {
 #' @examples round_string(1.1, 2)
 round_string <- function(x, digits = 2) {
   x <- as.double(x)
-  purrr::map2_chr(
-    x, digits,
-    ~ formatC(round(.x, digits = .y), digits = .y, format = "f")
-  ) %>%
-    stringr::str_trim()
+  res <- purrr::map2_chr(x, digits, ~ formatC(round(.x, digits = .y),
+    digits = .y, format = "f"
+  )) %>% stringr::str_trim()
+
+  res <- ifelse(res == "NA", NA_character_, res)
+  return(res)
 }
 
 #' from float number to fixed significant digits character
@@ -61,7 +62,9 @@ signif_string <- function(x, digits = 2) {
   x <- round(trans, digits) / trans_scale
 
   round_digits <- log10(trans_scale) + digits
-  round_digits <- ifelse(round_digits < 0, 0, round_digits)
+  round_digits <- ifelse(round_digits < 0 | is.na(round_digits),
+    0, round_digits
+  )
 
   res <- round_string(x, round_digits)
   return(res)
@@ -137,6 +140,51 @@ signif_round_string <- function(x, digits = 2, format = "short",
     res <- ifelse(abs(x) < 0.1^digits, signif_x, res)
   }
 
+  return(res)
+}
+
+#' signif while use floor
+#'
+#' @param x number
+#' @param digits digits
+#'
+#' @return number
+#' @export
+#'
+#' @examples signif_floor(3.19, 2)
+signif_floor <- function(x, digits = 2) {
+  if (any(digits < 1)) {
+    stop("digits must more than 1!")
+  }
+
+  x <- as.double(x)
+  trans_x <- int_digits(x, digits = digits)
+  scale_factor <- int_digits(x, digits = digits, scale_factor = TRUE)
+
+  res <- floor(trans_x) / scale_factor
+  return(res)
+}
+
+
+#' signif while use ceiling
+#'
+#' @param x number
+#' @param digits digits
+#'
+#' @return number
+#' @export
+#'
+#' @examples signif_ceiling(3.11, 2)
+signif_ceiling <- function(x, digits = 2) {
+  if (any(digits < 1)) {
+    stop("digits must more than 1!")
+  }
+
+  x <- as.double(x)
+  trans_x <- int_digits(x, digits = digits)
+  scale_factor <- int_digits(x, digits = digits, scale_factor = TRUE)
+
+  res <- ceiling(trans_x) / scale_factor
   return(res)
 }
 
@@ -278,6 +326,221 @@ correct_ratio <- function(raw, target, digits = 0) {
   res <- targets[targets_allow] %>%
     unlist() %>%
     unname()
+
+  return(res)
+}
+
+
+
+
+#' the ticks near a number
+#'
+#' @param x number
+#' @param level the level of ticks, such as 1, 10, 100, etc.
+#' @param div number of divisions
+#'
+#' @return number vector of ticks
+#' @export
+#'
+#' @examples near_ticks(3462, level = 10)
+near_ticks <- function(x, level = NULL, div = 2) {
+  if (length(x) > 1) {
+    stop("the length of x must be 1!")
+  }
+
+  x <- as.double(x)
+
+  if (is.null(level)) {
+    level <- 10^ceiling(log10(x))
+  }
+  ticks <- seq(0, 10^ceiling(log10(level)), length.out = div + 1)
+  scale_factor <- ticks[length(ticks)]
+  base_number <- floor(x / scale_factor) * scale_factor
+  res <- ticks + base_number
+
+  return(res)
+}
+
+
+
+#' the nearest ticks around a number
+#'
+#' @param x number
+#' @param side default as 'both', can be 'both|left|right'
+#' @param level the level of ticks, such as 1, 10, 100, etc.
+#' @param div number of divisions
+#'
+#' @return nearest tick number
+#' @export
+#'
+#' @examples nearest_tick(3462, level = 10)
+nearest_tick <- function(x, side = "both", level = NULL, div = 2) {
+  x <- as.double(x)
+  ticks <- near_ticks(x, level = level, div = div)
+  dist <- ticks - x
+
+  if (side == "both") {
+    tick <- ticks[abs(dist) == min(abs(dist))]
+  } else if (side == "left") {
+    l1 <- dist <= 0
+    left_dist <- dist[l1]
+    l2 <- abs(left_dist) == min(abs(left_dist))
+    tick <- ticks[pileup_logical(l1, l2)]
+  } else if (side == "right") {
+    l1 <- dist >= 0
+    right_dist <- dist[l1]
+    l2 <- abs(right_dist) == min(abs(right_dist))
+    tick <- ticks[pileup_logical(l1, l2)]
+  }
+
+  return(tick)
+}
+
+
+
+
+#' generate ticks for a number vector
+#'
+#' @param x number vector
+#' @param expect_ticks expected number of ticks, may be a little different from
+#' the result
+#'
+#' @return ticks number
+#' @export
+#'
+#' @examples generate_ticks(c(176, 198, 264))
+generate_ticks <- function(x, expect_ticks = 10) {
+  level <- 10^ceiling(log10(max(x) - min(x)))
+  left <- nearest_tick(min(x), level = level, side = "left", div = 20)
+  right <- nearest_tick(max(x), level = level, side = "right", div = 20)
+  step <- nearest_tick((right - left) / expect_ticks, side = "right")
+
+  res <- seq(left, right, by = step)
+  return(res)
+}
+
+
+
+#' split a positive integer number as a number vector
+#'
+#' @param x positive integer
+#' @param n length of the output
+#' @param method should be one of `average, random`, or a number vector which
+#' length is n
+#' @return number vector
+#' @export
+#'
+#' @examples
+#' pos_int_split(12, 3, method = "average")
+#'
+#' pos_int_split(12, 3, method = "random")
+#'
+#' pos_int_split(12, 3, method = c(1, 2, 3))
+#'
+pos_int_split <- function(x, n, method = "average") {
+  x <- as.integer(x)
+  if (x <= 0) {
+    stop("x should be a positive integer!")
+  }
+
+  if (is.numeric(method) == TRUE && length(method) == n) {
+    res <- round(x * method / sum(method))
+  } else if (method == "average") {
+    res <- rep(floor(x / n), n)
+    res[seq_len(x %% n)] <- res[seq_len(x %% n)] + 1
+  } else if (method == "random") {
+    while (TRUE) {
+      res <- sample(1:x, n, replace = TRUE)
+      if (sum(res) == x) break
+    }
+  } else {
+    stop("please input a valid method!")
+  }
+  return(res)
+}
+
+
+#' generate outliers from a series of number
+#'
+#' @param x number vector
+#' @param n number of outliers to generate
+#' @param digits the digits of outliers
+#' @param side should be one of `both, low, high`
+#' @param lim a two-length vector to assign the limitations of the outliers
+#' if method is `both`, the outliers will be limited in
+#' \[lim\[1\], low_outlier_threshold] and \[high_outlier_threshold, lim\[2\]\]
+#' ;
+#' if method is `low`, the outliers will be limited in
+#' \[lim\[1\], min(low_outlier_threshold, lim\[2\])]
+#' ;
+#' if method is `high`, the outliers will be limited in
+#' \[max(high_outlier_threshold, lim\[1\]), lim\[2\]]
+#' @param assign_n manually assign the number of low outliers or
+#' high outliers when method is `both`
+#' @param only_out only return outliers
+#'
+#' @return number vector of outliers
+#' @export
+#'
+#' @examples
+#' x <- seq(0, 100, 1)
+#'
+#' gen_outlier(x, 10)
+#'
+#' # generation limits
+#' gen_outlier(x, 10, lim = c(-80, 160))
+#'
+#' # assign the low and high outliers
+#' gen_outlier(x, 10, lim = c(-80, 160), assign_n = c(0.1, 0.9))
+#'
+#' # just generate low outliers
+#' gen_outlier(x, 10, side = "low")
+#'
+#' # return with raw vector
+#' gen_outlier(x, 10, only_out = FALSE)
+#'
+gen_outlier <- function(x, n, digits = 0, side = "both",
+                        lim = NULL, assign_n = NULL, only_out = TRUE) {
+  x <- as.double(x)
+  iqr <- IQR(x)
+  high_threshold <- boxplot.stats(x)$stats[4] + 1.5 * iqr
+  low_threshold <- boxplot.stats(x)$stats[2] - 1.5 * iqr
+  if (is.null(lim)) {
+    lim <- c(low_threshold - 3 * iqr, high_threshold + 3 * iqr)
+  } else if (length(lim) != 2) {
+    stop("the length of lim should be 2!")
+  }
+
+
+  if (side == "both") {
+    if (!is.null(assign_n) && length(assign_n) == 2) {
+      nvec <- pos_int_split(n, 2, method = assign_n)
+    } else {
+      nvec <- pos_int_split(n, 2, method = "average")
+    }
+
+    if (lim[1] > low_threshold) {
+      stop(str_c("lim[1] should smaller than ", round(low_threshold, digits)))
+    }
+    if (lim[2] < high_threshold) {
+      stop(str_c("lim[2] should larger than ", round(high_threshold, digits)))
+    }
+
+    res <- c(
+      runif(nvec[1], min = lim[1], max = low_threshold),
+      runif(nvec[2], min = high_threshold, max = lim[2])
+    )
+  } else if (side == "low") {
+    res <- runif(n, min = lim[1], max = min(low_threshold, lim[2]))
+  } else if (side == "high") {
+    res <- runif(n, min = max(high_threshold, lim[1]), max = lim[2])
+  }
+
+  res <- round(res, digits)
+
+  if (only_out == FALSE) {
+    res <- c(res, x)
+  }
 
   return(res)
 }

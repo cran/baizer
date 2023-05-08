@@ -9,12 +9,9 @@ pkglib(...)
 \arguments{
 \item{...}{pkgs}
 }
-\value{
-nothing
-}
 \description{
 load packages as a batch
 }
 \examples{
-baizer::pkglib(dplyr, purrr, tidyr)
+baizer::pkglib(dplyr, purrr)
 }
