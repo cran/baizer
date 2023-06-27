@@ -35,6 +35,24 @@ test_that("collapse_vector", {
 })
 
 
+test_that("slice_char", {
+  x <- c("A", "B", "C", "D", "E")
+  expect_identical(slice_char(x, "A", "D"), c("A", "B", "C", "D"))
+  expect_identical(slice_char(x, "D", "A"), rev(c("A", "B", "C", "D")))
+
+  x <- c("A", "B", "C", "C", "A", "D", "D", "E", "A")
+  expect_identical(
+    slice_char(x, "B", "E"),
+    c("B", "C", "C", "A", "D", "D", "E")
+  )
+  expect_error(slice_char(x, "A", "E"))
+  expect_identical(
+    slice_char(x, "A", "E", unique = TRUE),
+    c("A", "B", "C", "C", "D", "D", "E")
+  )
+})
+
+
 test_that("diff_index", {
   expect_identical(diff_index("AAAA", "ABBA"), list(as.integer(c(2, 3))))
   expect_identical(
@@ -286,10 +304,14 @@ test_that("uniq", {
   expect_identical(
     uniq(v), c(a = 1, b = 2, c = 3)
   )
+  v <- c(a = 1, b = 2, c = 3)
+  expect_identical(
+    uniq(v), c(a = 1, b = 2, c = 3)
+  )
 })
 
 
-test_that("uniq", {
+test_that("replace_item", {
   x <- list(A = 1, B = 3)
   y <- list(A = 9, C = 10)
   expect_identical(replace_item(x, y), list(A = 9, B = 3))
@@ -299,4 +321,75 @@ test_that("uniq", {
   )
   expect_error(replace_item(x, c(A = 9, C = 10)))
   expect_error(replace_item(c(A = 1, B = 3), c(A = 9, C = 10, A = 80)))
+})
+
+test_that("gen_char", {
+  expect_identical(gen_char(from = "g", n = 5), c("g", "h", "i", "j", "k"))
+  expect_identical(gen_char(to = "g", n = 5), c("c", "d", "e", "f", "g"))
+  expect_identical(gen_char(from = "g", to = "j"), c("g", "h", "i", "j"))
+  expect_identical(gen_char(n = 3, random = TRUE, seed = 1), c("y", "d", "g"))
+  expect_true(all(
+    gen_char(from = "t", n = 5, random = TRUE) %in%
+      slice_char(letters, from = "t")
+  ))
+  expect_true(all(
+    gen_char(
+      from = "x", n = 5, random = TRUE,
+      allow_dup = FALSE, add = c("+", "-")
+    ) %in%
+      slice_char(c(letters, c("+", "-")), from = "x")
+  ))
+  expect_error(gen_char(from = "a", to = "b", n = 3))
+  expect_error(gen_char(from = "x", n = 10, random = TRUE, allow_dup = FALSE))
+})
+
+
+test_that("rng2seq", {
+  expect_identical(
+    rng2seq(c("1-5", "2")),
+    list(c("1", "2", "3", "4", "5"), "2")
+  )
+})
+
+
+test_that("top_item", {
+  expect_identical(
+    gen_char(n = 10, to = "g", random = TRUE, seed = 10) %>%
+      top_item(n = 10),
+    c("g", "c", "a", "b", "d", "f")
+  )
+})
+
+test_that("melt_vector", {
+  expect_identical(
+    melt_vector(c(NA, 2, 3), method = "first"), 2
+  )
+  expect_identical(
+    melt_vector(c(NA, 2, 3), method = "sum"), 5
+  )
+  expect_identical(
+    melt_vector(c(NA, 2, 3), method = ","), "2,3"
+  )
+  expect_identical(
+    melt_vector(c(NA, 2, Inf), method = ",", invalid = Inf), NA_character_
+  )
+  expect_identical(
+    melt_vector(c(3, 2, Inf), method = ",", invalid = Inf), "3,2"
+  )
+  expect_identical(
+    melt_vector(c(NA, 2, Inf), invalid = c(Inf, NA)), 2
+  )
+  expect_identical(
+    melt_vector(c(NA, 2, Inf), method = ",", invalid = c(Inf, NA)), "2"
+  )
+})
+
+test_that("combn_vector", {
+  x1 <- c(1, 2, NA, NA)
+  x2 <- c(3, NA, 2, NA)
+  x3 <- c(4, NA, NA, 3)
+  expect_identical(
+    combn_vector(x1, x2, x3, method = "sum"),
+    c(8, 2, 2, 3)
+  )
 })

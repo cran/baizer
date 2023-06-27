@@ -214,3 +214,92 @@ test_that("cross_count, method='rowr'", {
 test_that("cross_count, method='colr'", {
   expect_snapshot(cross_count(mini_diamond, cut, clarity, method = "colr"))
 })
+
+
+test_that("list2tibble, method='row'", {
+  x <- list(
+    c("a", "1"),
+    c("b", "2"),
+    c("c", "3")
+  )
+  expect_snapshot(list2tibble(x, colnames = c("char", "num")))
+})
+
+
+
+test_that("list2tibble, method='col'", {
+  x <- list(
+    c("a", "b", "c"),
+    c("1", "2", "3")
+  )
+
+  expect_snapshot(list2tibble(x, method = "col"))
+})
+
+
+test_that("exist_matrix", {
+  x <- 1:5 %>% map(~ gen_char(to = "k", n = 5, random = TRUE, seed = .x))
+  expect_snapshot(exist_matrix(x))
+})
+
+test_that("exist_matrix, sort_items", {
+  x <- 1:5 %>% map(
+    ~ str_c(
+      gen_char(to = "d", n = 3, random = TRUE, seed = .x),
+      gen_char(from = "o", n = 3, random = TRUE, seed = .x) %>% str_to_upper()
+    )
+  )
+  expect_snapshot(exist_matrix(x, sort_items = ~ str_sub(.x, start = 2)))
+})
+
+test_that("seriate_df", {
+  x <- mini_diamond %>%
+    dplyr::select(id, dplyr::where(is.numeric)) %>%
+    dplyr::mutate(
+      dplyr::across(
+        dplyr::where(is.numeric),
+        ~ round(.x / max(.x), 4)
+      )
+    ) %>%
+    c2r("id")
+  expect_snapshot(seriate_df(x))
+})
+
+
+test_that("dx_tb", {
+  x <- tibble::tibble(
+    c1 = c("NA", NA, "a", "b"),
+    c2 = c("c", "d", "e", "NULL"),
+    c3 = c("T", "F", "F", "T"),
+    c4 = c("T", "F", "F", NA),
+    c5 = c("", " ", "\t", "\n")
+  )
+
+
+  expect_snapshot(dx_tb(x))
+})
+
+
+test_that("gen_tb", {
+  expect_snapshot(gen_tb(fill = "str", nrow = 3, ncol = 4, len = 3, seed = 123))
+})
+
+test_that("diff_tb", {
+  tb1 <- gen_tb(fill = "int", seed = 1)
+  tb2 <- gen_tb(fill = "int", seed = 3)
+
+  expect_snapshot(diff_tb(tb1, tb2))
+})
+
+
+test_that("tdf", {
+  expect_snapshot(tdf(head(mini_diamond)))
+})
+
+test_that("tdf, with rownames", {
+  expect_snapshot(tdf(c2r(head(mini_diamond), "id")))
+})
+
+test_that("uniq_in_cols", {
+  expect_snapshot(uniq_in_cols(mini_diamond))
+})

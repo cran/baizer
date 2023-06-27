@@ -71,6 +71,30 @@ pkgver <- function(...) {
     !(is.na(x) & is.na(y))
 }
 
+#' not NA
+#'
+#' @param x value
+#'
+#' @return logical value
+#' @export
+#'
+#' @examples not.na(NA)
+not.na <- function(x) {
+  !is.na(x)
+}
+
+
+#' not NULL
+#'
+#' @param x value
+#'
+#' @return logical value
+#' @export
+#'
+#' @examples not.null(NULL)
+not.null <- function(x) {
+  !is.null(x)
+}
 
 
 #' dump a named vector into character
@@ -97,6 +121,49 @@ collapse_vector <- function(named_vector, front_name = TRUE, collapse = ",") {
       stringr::str_c(collapse = collapse)
   }
 }
+
+
+#' slice character vector
+#'
+#' @param x character vector
+#' @param from from
+#' @param to to
+#' @param unique remove the duplicated boundary characters
+#'
+#' @return sliced vector
+#' @export
+#'
+#' @examples
+#' x <- c("A", "B", "C", "D", "E")
+#' slice_char(x, "A", "D")
+#' slice_char(x, "D", "A")
+#'
+#' x <- c("A", "B", "C", "C", "A", "D", "D", "E", "A")
+#' slice_char(x, "B", "E")
+#' # duplicated element as boundary will throw an error
+#' # slice_char(x, 'A', 'E')
+#' # unique=TRUE to remove the duplicated boundary characters
+#' slice_char(x, "A", "E", unique = TRUE)
+#'
+slice_char <- function(x, from = x[1], to = x[length(x)], unique = FALSE) {
+  if (!is(x, "character")) {
+    stop("x should be character vector")
+  }
+  if (unique == TRUE) {
+    x <- x[-c(which(x == from)[-1], which(x == to)[-1])]
+  }
+
+  dup_char <- x[duplicated(x)]
+  inter <- intersect(c(from, to), dup_char)
+
+  if (length(inter) != 0) {
+    stop("x have duplicated characters at slice boundaries")
+  }
+
+  res <- x[which(from == x):which(to == x)]
+  return(res)
+}
+
 
 
 #' the index of different character
@@ -387,7 +454,7 @@ expr_pileup <- function(ex) {
 #'
 #' @param x vector
 #' @param pattern regex pattern
-#' @param group regex gruop, 1 as default. when group=-1,
+#' @param group regex group, 1 as default. when group=-1,
 #' return full matched tibble
 #'
 #' @return vector or tibble
@@ -485,7 +552,7 @@ split_vector <- function(vector, breaks, bounds = "(]") {
   purrr::map(split_index, ~ vector[.x])
 }
 
-#' group chracter vector by a regex pattern
+#' group character vector by a regex pattern
 #'
 #' @param x character vector
 #' @param pattern regex pattern, '\\w' as default
@@ -538,7 +605,7 @@ group_vector <- function(x, pattern = "\\w") {
 #'
 #' @param x vector
 #' @param func a function used by the sort
-#' @param group_pattern a regex pattern to group by, only aviable if x is a
+#' @param group_pattern a regex pattern to group by, only available if x is a
 #' character vector
 #'
 #' @return vector
@@ -652,9 +719,13 @@ pileup_logical <- function(x, v) {
 #' uniq(x)
 #'
 uniq <- function(x) {
-  return(x[-which(duplicated(x))])
+  dup_idx <- which(duplicated(x))
+  if (length(dup_idx) != 0) {
+    return(x[-dup_idx])
+  } else {
+    return(x)
+  }
 }
-
 
 #' replace the items of one object by another
 #'
@@ -700,4 +771,224 @@ replace_item <- function(x, y, keep_extra = FALSE) {
   }
 
   return(x)
+}
+
+
+
+#' generate characters
+#'
+#' @param from left bound, lower case letter
+#' @param to right bound, lower case letter
+#' @param n number of characters to generate
+#' @param random random generation
+#' @param allow_dup allow duplication when random generation
+#' @param add add extra characters other than `base::letters`
+#' @param seed random seed
+#'
+#' @return generated characters
+#' @export
+#'
+#' @examples
+#' gen_char(from = "g", n = 5)
+#' gen_char(to = "g", n = 5)
+#' gen_char(from = "g", to = "j")
+#' gen_char(from = "t", n = 5, random = TRUE)
+#' gen_char(
+#'   from = "x", n = 5, random = TRUE,
+#'   allow_dup = FALSE, add = c("+", "-")
+#' )
+#'
+gen_char <- function(from = NULL, to = NULL, n = NULL,
+                     random = FALSE, allow_dup = TRUE,
+                     add = NULL, seed = NULL) {
+  # merge the added vector
+  v <- uniq(c(letters, add))
+
+  # letter slice
+  if (random == FALSE) {
+    if (check_arg(n, from, to, n = 2)) {
+      if (is.null(n)) {
+        res <- slice_char(v, from, to)
+      } else if (is.null(from)) {
+        to_index <- which(v == to)
+        res <- v[(to_index - n + 1):to_index]
+      } else if (is.null(to)) {
+        from_index <- which(v == from)
+        res <- v[from_index:(from_index + n - 1)]
+      }
+    } else {
+      stop("please only assign two of the three arguments: n, from, to")
+    }
+  } else {
+    # random generation
+    if (is.null(n)) {
+      stop("please input n")
+    }
+    # use from and to slice the vector
+    from <- if (is.null(from)) v[1] else from
+    to <- if (is.null(to)) v[length(v)] else to
+    v <- slice_char(v, from, to)
+
+    if (!is.null(seed)) {
+      withr::with_seed(
+        seed = seed,
+        res <- sample(v, size = n, replace = allow_dup)
+      )
+    } else {
+      res <- sample(v, size = n, replace = allow_dup)
+    }
+  }
+
+  return(res)
+}
+
+
+
+#' generate strings
+#'
+#' @param n number of strings to generate
+#' @param len string length
+#' @param seed random seed
+#'
+#' @return string
+#' @export
+#'
+#' @examples gen_str(n = 2, len = 3)
+gen_str <- function(n = 1, len = 3, seed = NULL) {
+  suppressWarnings({
+    withr::with_seed(seed, {
+      res <- seq_len(n) %>% map_chr(
+        ~ gen_char(n = len, random = TRUE) %>%
+          str_c(collapse = "")
+      )
+    })
+  })
+
+  return(res)
+}
+
+
+#' trans range character into seq characters
+#'
+#' @param x range character
+#' @param sep range separator
+#'
+#' @return seq characters
+#' @export
+#'
+#' @examples rng2seq(c("1-5", "2"))
+rng2seq <- function(x, sep = "-") {
+  pattern <- str_glue("^[\\d{sep}]+$")
+  if (any(!str_detect(x, pattern))) {
+    stop("input should only have number and sep!")
+  }
+
+  func <- function(x) {
+    if ((length(x)) == 1) {
+      r <- x
+    } else if ((length(x)) == 2) {
+      r <- seq(as.integer(x[1]), as.integer(x[2])) %>% as.character()
+    } else {
+      stop("input should be like 1-10")
+    }
+    return(r)
+  }
+
+
+  res <- str_split(x, sep) %>%
+    map(func)
+  return(res)
+}
+
+
+#' return top n items with highest frequency
+#'
+#' @param x character
+#' @param n top n
+#'
+#' @return character
+#' @export
+#'
+#' @examples
+#'
+#' top_item(c("a", "b", "c", "b"))
+#'
+top_item <- function(x, n = 1) {
+  lev <- tibble(x) %>%
+    dplyr::count(x, sort = TRUE) %>%
+    dplyr::pull(x)
+  res <- lev[seq_len(min(n, length(lev)))]
+  return(res)
+}
+
+
+
+#' melt a vector into single value
+#'
+#' @param x vector
+#' @param method how to melt, should be one of
+#' `first|last`, or one of `sum|mean|median` for numeric vector,
+#' or some characters (e.g. `,|.| |;`) for character vector
+#' @param invalid invalid value to ignore, `NA` as default
+#'
+#' @return melted single value
+#' @export
+#'
+#' @examples
+#'
+#' melt_vector(c(NA, 2, 3), method = "first")
+#'
+#' melt_vector(c(NA, 2, 3), method = "sum")
+#'
+#' melt_vector(c(NA, 2, 3), method = ",")
+#'
+#' melt_vector(c(NA, 2, Inf), invalid = c(NA, Inf))
+#'
+melt_vector <- function(x, method = "first", invalid = NA) {
+  res <- x[x %nin% invalid]
+  if (method == "first") {
+    res <- res[1]
+  } else if (method == "last") {
+    res <- res[length(res)]
+  } else if (method == "sum") {
+    res <- sum(res, na.rm = TRUE)
+  } else if (method == "mean") {
+    res <- mean(res, na.rm = TRUE)
+  } else if (method == "median") {
+    res <- median(res, na.rm = TRUE)
+  } else {
+    res <- str_c(res, collapse = method)
+  }
+
+  return(res)
+}
+
+
+#' combine multiple vectors into one
+#'
+#' @param ... vectors
+#' @param method how to combine, should be one of
+#' `first|last`, or one of `sum|mean|median` for numeric vector,
+#' or some characters (e.g. `,|.| |;`) for character vector
+#' @param invalid invalid value to ignore, `NA` as default
+#'
+#' @return combined vector
+#' @export
+#'
+#' @examples
+#' x1 <- c(1, 2, NA, NA)
+#' x2 <- c(3, NA, 2, NA)
+#' x3 <- c(4, NA, NA, 3)
+#'
+#' combn_vector(x1, x2, x3, method = "sum")
+#'
+combn_vector <- function(..., method = "first", invalid = NA) {
+  res <- apply(
+    cbind(...), 1,
+    melt_vector,
+    method = method, invalid = invalid
+  ) %>%
+    unlist() %>%
+    unname()
+  return(res)
 }

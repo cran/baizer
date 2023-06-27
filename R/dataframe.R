@@ -275,13 +275,21 @@ remove_nacol <- function(df, max_ratio = 1) {
 #' @param df tibble
 #' @param max_ratio max NA ratio, default as 1 which remove the rows only
 #' have NA
+#' @param ... only remove rows according to these columns,
+#' refer to `dplyr::select()`
 #'
 #' @return tibble
 #' @export
 #'
 #' @examples # remove_narow(df)
-remove_narow <- function(df, max_ratio = 1) {
-  keep <- which(rowSums(is.na(df)) < max_ratio * ncol(df))
+remove_narow <- function(df, ..., max_ratio = 1) {
+  if (length(enexprs(...)) == 0) {
+    df_sel <- df
+  } else {
+    df_sel <- dplyr::select(df, ...)
+  }
+
+  keep <- which(rowSums(is.na(df_sel)) < max_ratio * ncol(df_sel))
   res <- df[keep, ]
   return(res)
 }
@@ -555,6 +563,328 @@ cross_count <- function(df, row, col, method = "n", digits = 2) {
       names_from = {{ col }}, values_from = "r"
     )
   }
+
+  # sort
+  row_vec <- df[[quo_name(row)]]
+  col_vec <- df[[quo_name(col)]]
+  if (is.factor(row_vec)) {
+    row_ord <- levels(row_vec)
+  } else {
+    row_ord <- unique(row_vec) %>% sort()
+  }
+  # the col_ord should be character for column selection
+  if (is.factor(col_vec)) {
+    col_ord <- levels(col_vec) %>% as.character()
+  } else {
+    col_ord <- unique(col_vec) %>%
+      sort() %>%
+      as.character()
+  }
+
+  res <- res %>%
+    dplyr::mutate("{{row}}" := factor({{ row }}, row_ord)) %>% # nolint
+    # use any_of, to avoid extra factor levels error
+    select({{ row }}, any_of(col_ord))
+
+  # return
   res <- res %>% c2r(quo_name(row))
+  return(res)
+}
+
+
+#' trans list into tibble
+#'
+#' @param x list
+#' @param colnames colnames of the output
+#' @param method one of `row, col`, set each item as row or col, default as row
+#'
+#' @return tibble
+#' @export
+#'
+#' @examples
+#' x <- list(
+#'   c("a", "1"),
+#'   c("b", "2"),
+#'   c("c", "3")
+#' )
+#'
+#' list2tibble(x, colnames = c("char", "num"))
+#'
+#' x <- list(
+#'   c("a", "b", "c"),
+#'   c("1", "2", "3")
+#' )
+#'
+#' list2tibble(x, method = "col")
+list2tibble <- function(x, colnames = NULL, method = "row") {
+  suppressMessages({
+    if (method == "row") {
+      res <- map_dfr(x, ~ as_tibble_row(.x, .name_repair = "unique"))
+    } else if (method == "col") {
+      res <- map_dfc(x, ~ as_tibble_col(.x))
+    } else {
+      stop("method should be one of row, col")
+    }
+  })
+
+  if (is.null(colnames)) {
+    colnames <- str_c("V", seq_len(ncol(res)))
+  }
+  colnames(res) <- colnames
+  return(res)
+}
+
+
+#' generate a matrix to show whether the item in each element of a list
+#'
+#' @param x list of character vectors
+#' @param n_lim n limit to keep items in result
+#' @param n_top only keep top n items in result
+#' @param sort_items function to sort the items, item frequency by default
+#'
+#' @return tibble
+#' @export
+#'
+#' @examples
+#' x <- 1:5 %>% purrr::map(
+#'   ~ gen_char(to = "k", n = 5, random = TRUE, seed = .x)
+#' )
+#' exist_matrix(x)
+#'
+exist_matrix <- function(x, n_lim = 0, n_top = NULL, sort_items = NULL) {
+  # character elements
+  if (any(map_chr(x, class) != "character")) {
+    stop("all elements of x should be character vectors!")
+  }
+
+
+  if (is.null(names(x))) {
+    names(x) <- seq_along(x)
+  }
+
+  count_tb <- x %>%
+    unlist() %>%
+    as_tibble() %>%
+    dplyr::count(value) %>%
+    dplyr::arrange(dplyr::desc(.data[["n"]]))
+
+  # keep top n, or keep items whose n > n_lim
+  if (!is.null(n_top)) {
+    count_tb <- count_tb %>% dplyr::slice(seq_len(n_top))
+  } else {
+    count_tb <- count_tb %>% dplyr::filter(.data[["n"]] > n_lim)
+  }
+
+  items <- count_tb[["value"]]
+
+  # remove NA
+  items <- items[!is.na(items)]
+
+  if (!is.null(sort_items)) {
+    items <- sortf(items, sort_items)
+  }
+
+  res <- x %>%
+    purrr::map(~ items %in% .x) %>%
+    as.data.frame()
+
+  colnames(res) <- names(x)
+  rownames(res) <- items
+
+  res <- res %>%
+    t() %>%
+    as_tibble(rownames = NA)
+
+  return(res)
+}
+
+
+#' dataframe rows seriation, which will reorder the rows in a better pattern
+#'
+#' @param x dataframe
+#'
+#' @return seriated dataframe
+#' @export
+#'
+#' @examples
+#' x <- mini_diamond %>%
+#'   dplyr::select(id, dplyr::where(is.numeric)) %>%
+#'   dplyr::mutate(
+#'     dplyr::across(
+#'       dplyr::where(is.numeric),
+#'       ~ round(.x / max(.x), 4)
+#'     )
+#'   ) %>%
+#'   c2r("id")
+#'
+#' seriate_df(x)
+#'
+seriate_df <- function(x) {
+  row_ord <- seriation::seriate(x)[[1]][["order"]]
+  return(x[row_ord, ])
+}
+
+
+#' diagnosis a tibble for character NA, NULL, all T/F column, blank in cell
+#'
+#' @param x tibble
+#'
+#' @return list
+#' @export
+#'
+#' @examples
+#' x <- tibble::tibble(
+#'   c1 = c("NA", NA, "a", "b"),
+#'   c2 = c("c", "d", "e", "NULL"),
+#'   c3 = c("T", "F", "F", "T"),
+#'   c4 = c("T", "F", "F", NA),
+#'   c5 = c("", " ", "\t", "\n")
+#' )
+#'
+#' dx_tb(x)
+#'
+dx_tb <- function(x) {
+  res <- list(
+    chr_na = as_tibble(which(x == "NA", arr.ind = TRUE)),
+    chr_null = as_tibble(which(x == "NULL", arr.ind = TRUE)),
+    only_tf = x %>%
+      map_lgl(~ all(.x %in% c("T", "F", NA))) %>%
+      which() %>%
+      unname(),
+    blank_in_cell = unlist(x) %>% str_subset("^\\s+$") %>% unique()
+  )
+
+  res[["stat"]] <- res %>% map_dbl(
+    ~ if (is_tibble(.x)) nrow(.x) else length(.x)
+  )
+
+  res[["pass"]] <- if (sum(res[["stat"]]) == 0) TRUE else FALSE
+
+  return(res)
+}
+
+
+
+#' generate tibbles
+#'
+#' @param nrow number of rows
+#' @param ncol number of columns
+#' @param fill fill by, one of `float, int, char, str`
+#' @param colnames names of columns
+#' @param seed random seed
+#' @param ... parameters of `rnorm, gen_char, gen_str`
+#'
+#' @return tibble
+#' @export
+#'
+#' @examples
+#' gen_tb()
+#'
+#' gen_tb(fill = "str", nrow = 3, ncol = 4, len = 3)
+gen_tb <- function(nrow = 3, ncol = 4, fill = "float",
+                   colnames = NULL, seed = NULL, ...) {
+  suppressWarnings({
+    withr::with_seed(seed, {
+      if (fill == "float") {
+        df <- matrix(rnorm(nrow * ncol, ...), nrow = nrow) %>% as_tibble()
+      } else if (fill == "int") {
+        df <- matrix(floor(rnorm(nrow * ncol, ...) * 10), nrow = nrow) %>%
+          as_tibble()
+      } else if (fill == "char") {
+        df <- matrix(gen_char(n = nrow * ncol, random = TRUE, ...),
+          nrow = nrow
+        ) %>% as_tibble()
+      } else if (fill == "str") {
+        df <- matrix(gen_str(n = nrow * ncol, seed = seed, ...),
+          nrow = nrow
+        ) %>% as_tibble()
+      }
+    })
+  })
+
+
+  return(df)
+}
+
+
+
+#' differences between two tibbles
+#'
+#' @param old old tibble
+#' @param new new tibble
+#'
+#' @return comparation tibble
+#' @export
+#'
+#' @examples
+#' tb1 <- gen_tb(fill = "int", seed = 1)
+#'
+#' tb2 <- gen_tb(fill = "int", seed = 3)
+#'
+#' diff_tb(tb1, tb2)
+#'
+diff_tb <- function(old, new) {
+  p <- waldo::compare(old, new)
+  compare_list <- p[[1]] %>%
+    str_split("\n") %>%
+    unlist() %>%
+    # clear format
+    str_replace_all("\033\\[\\d+?m", "") %>%
+    # clear extra space
+    str_replace_all("new|old", "") %>%
+    str_replace_all("^([+-]) \\[(\\d+), \\]", "\\1[\\2,]") %>%
+    # split
+    str_split(" +")
+
+  res <- compare_list[3:length(compare_list)] %>%
+    list2tibble(colnames = c("compare", compare_list[[2]][-1]))
+
+  return(res)
+}
+
+
+#' transpose a dataframe
+#'
+#' @param x dataframe
+#' @param colnames column names of the transposed dataframe
+#'
+#' @return dataframe
+#' @export
+#'
+#' @examples
+#'
+#' x <- c2r(mini_diamond, "id")
+#' tdf(x)
+#'
+tdf <- function(x, colnames = NULL) {
+  res <- as_tibble(
+    cbind(item = colnames(x), t(x))
+  )
+
+  if (!is.null(colnames)) {
+    colnames(res) <- colnames
+  }
+
+  return(res)
+}
+
+
+
+#' count unique values in each column
+#'
+#' @param x tibble
+#'
+#' @return tibble
+#' @export
+#'
+#' @examples
+#'
+#' uniq_in_cols(mini_diamond)
+#'
+uniq_in_cols <- function(x) {
+  res <- map(x, ~ length(unique(.x))) %>%
+    as_tibble() %>%
+    tdf(colnames = c("col", "uniqe_values"))
+
   return(res)
 }

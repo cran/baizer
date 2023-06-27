@@ -1,3 +1,21 @@
+#' generate all combinations
+#'
+#' @param x vector
+#' @param n numbers of element to combine
+#'
+#' @return all combinations
+#' @export
+#'
+#' @examples gen_combn(1:4, n = 2)
+#'
+gen_combn <- function(x, n = 2) {
+  res <- combn(x, n) %>%
+    as.data.frame() %>%
+    as.list() %>%
+    unname()
+  return(res)
+}
+
 #' geometric mean
 #'
 #' @param x value
@@ -22,7 +40,7 @@ geom_mean <- function(x, na.rm = TRUE) {
 #' @param paired paired samples or not
 #' @param method test method, 'wilcoxon' as default
 #' @param alternative one of "two.sided" (default), "greater" or "less"
-#' @param ns_symbol symbol of nonsiginficant, 'NS' as default
+#' @param ns_symbol symbol of nonsignificant, 'NS' as default
 #'
 #' @return test result tibble
 #' @export
@@ -229,4 +247,25 @@ stat_fc <- function(df, y, x, method = "mean", .by = NULL,
     res <- stat_ingroup(df)
   }
   return(res)
+}
+
+
+
+#' calculate phi coefficient of two binary variables
+#'
+#' @param x 2x2 matrix or dataframe
+#'
+#' @return phi coefficient
+#' @export
+#'
+#' @examples
+#' data <- matrix(c(10, 8, 14, 18), nrow = 2)
+#' stat_phi(data)
+stat_phi <- function(x) {
+  if (prod(dim(x)) != 4) {
+    stop("the dim of x should be 2x2")
+  }
+  numerator <- x[1, 1] * x[2, 2] - x[1, 2] * x[2, 1]
+  denominator <- sqrt(prod(colSums(x), rowSums(x)))
+  return(numerator / denominator)
 }
