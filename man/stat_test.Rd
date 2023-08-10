@@ -11,9 +11,12 @@ stat_test(
   .by = NULL,
   trans = "identity",
   paired = FALSE,
+  paired_by = NULL,
   alternative = "two.sided",
+  exclude_func = NULL,
   method = "wilcoxon",
-  ns_symbol = "NS"
+  ns_symbol = "NS",
+  digits = 2
 )
 }
 \arguments{
@@ -29,11 +32,18 @@ stat_test(
 
 \item{paired}{paired samples or not}
 
+\item{paired_by}{a column for pair}
+
 \item{alternative}{one of "two.sided" (default), "greater" or "less"}
 
-\item{method}{test method, 'wilcoxon' as default}
+\item{exclude_func}{a function has two arguments and return bool value.}
+
+\item{method}{test method, 'wilcoxon' as default, one of \code{t|wilcoxon}}
 
 \item{ns_symbol}{symbol of nonsignificant, 'NS' as default}
+
+\item{digits}{significant figure digits of p value
+If the data pair of a single test returns TRUE, then exclude this pair}
 }
 \value{
 test result tibble

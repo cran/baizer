@@ -745,7 +745,7 @@ uniq <- function(x) {
 #'
 #' replace_item(x, y, keep_extra = TRUE)
 #'
-replace_item <- function(x, y, keep_extra = FALSE) {
+replace_item <- replace_item <- function(x, y, keep_extra = FALSE) {
   if (class(x) != class(y)) {
     stop("x, y should be two objects from same class,
          such as number, character or list")
@@ -765,7 +765,14 @@ replace_item <- function(x, y, keep_extra = FALSE) {
   inter_name <- intersect(xname, yname)
   extra_name <- setdiff(yname, xname)
 
-  x[inter_name] <- y[inter_name]
+  for (itn in inter_name) {
+    if (length(x[[itn]]) + length(y[[itn]]) < 3) {
+      x[[itn]] <- y[[itn]]
+    } else {
+      x[[itn]] <- replace_item(x[[itn]], y[[itn]], keep_extra = keep_extra)
+    }
+  }
+
   if (keep_extra == TRUE) {
     x <- c(x, y[extra_name])
   }
@@ -991,4 +998,45 @@ combn_vector <- function(..., method = "first", invalid = NA) {
     unlist() %>%
     unname()
   return(res)
+}
+
+
+#' broadcast the vector into length n
+#'
+#' @param x vector
+#' @param n target length
+#'
+#' @return vector
+#' @export
+#'
+#' @examples broadcast_vector(1:3, 5)
+#'
+broadcast_vector <- function(x, n) {
+  res <- c(rep(x, floor(n / length(x))), x[seq_len(n %% length(x))])
+  return(res)
+}
+
+
+#' max depth of a list
+#'
+#' @param x list
+#'
+#' @return number
+#' @export
+#'
+#' @examples
+#'
+#' max_depth(list(a = list(b = list(c = 1), d = 2, e = 3)))
+#'
+max_depth <- function(x) {
+  if (!is.list(x)) {
+    return(0)
+  } else {
+    depths <- map_dbl(x, max_depth)
+    if (length(depths) == 0) {
+      return(1)
+    } else {
+      return(max(depths) + 1)
+    }
+  }
 }

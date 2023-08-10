@@ -592,9 +592,10 @@ cross_count <- function(df, row, col, method = "n", digits = 2) {
 }
 
 
-#' trans list into tibble
+#' trans list into data.frame
 #'
 #' @param x list
+#' @param rownames use rownames or not
 #' @param colnames colnames of the output
 #' @param method one of `row, col`, set each item as row or col, default as row
 #'
@@ -608,33 +609,48 @@ cross_count <- function(df, row, col, method = "n", digits = 2) {
 #'   c("c", "3")
 #' )
 #'
-#' list2tibble(x, colnames = c("char", "num"))
+#' list2df(x, colnames = c("char", "num"))
 #'
 #' x <- list(
 #'   c("a", "b", "c"),
 #'   c("1", "2", "3")
 #' )
 #'
-#' list2tibble(x, method = "col")
-list2tibble <- function(x, colnames = NULL, method = "row") {
+#' list2df(x, method = "col")
+list2df <- function(x, rownames = TRUE, colnames = NULL, method = "row") {
   suppressMessages({
+    item_names <- str_c("It", seq_len(length(x)))
+    if (!is.null(names(x))) {
+      item_names <- ifelse(names(x) == "", item_names, names(x))
+    }
+
     if (method == "row") {
-      res <- map_dfr(x, ~ as_tibble_row(.x, .name_repair = "unique"))
+      res <- map_dfr(x, ~ as_tibble_row(.x, .name_repair = "unique")) %>%
+        as.data.frame()
+      if (rownames == TRUE) {
+        rownames(res) <- item_names
+      }
+
+      if (is.null(colnames)) {
+        colnames(res) <- str_c("V", seq_len(ncol(res)))
+      } else {
+        colnames(res) <- colnames
+      }
     } else if (method == "col") {
-      res <- map_dfc(x, ~ as_tibble_col(.x))
+      res <- map_dfc(x, ~ as_tibble_col(.x)) %>% as.data.frame()
+      if (is.null(colnames)) {
+        colnames(res) <- item_names
+      } else {
+        colnames(res) <- colnames
+      }
     } else {
       stop("method should be one of row, col")
     }
   })
 
-  if (is.null(colnames)) {
-    colnames <- str_c("V", seq_len(ncol(res)))
-  }
-  colnames(res) <- colnames
+
   return(res)
 }
-
-
 #' generate a matrix to show whether the item in each element of a list
 #'
 #' @param x list of character vectors
@@ -808,12 +824,42 @@ gen_tb <- function(nrow = 3, ncol = 4, fill = "float",
 
 
 
+ses <- function(x, y) {
+  attributes(x) <- NULL
+  attributes(y) <- NULL
+
+  if (is.character(x)) {
+    x <- enc2utf8(x)
+    y <- enc2utf8(y)
+  }
+
+  out <- diffobj::ses(x, y, warn = FALSE, max.diffs = 100)
+  out <- rematch2::re_match(out, paste0(
+    "(?:(?<x1>\\d+),)?(?<x2>\\d+)",
+    "(?<t>[acd])",
+    "(?:(?<y1>\\d+),)?(?<y2>\\d+)"
+  ))[1:5]
+
+  out$x1 <- ifelse(out$x1 == "", out$x2, out$x1)
+  out$y1 <- ifelse(out$y1 == "", out$y2, out$y1)
+
+  out$x1 <- as.integer(out$x1)
+  out$x2 <- as.integer(out$x2)
+  out$y1 <- as.integer(out$y1)
+  out$y2 <- as.integer(out$y2)
+
+  out
+}
+
+
+
 #' differences between two tibbles
 #'
 #' @param old old tibble
 #' @param new new tibble
 #'
-#' @return comparation tibble
+#' @return differences tibble, 'a, d, c' in `diff_type` stand for
+#' 'add, delete, change' compared to the old tibble
 #' @export
 #'
 #' @examples
@@ -824,22 +870,84 @@ gen_tb <- function(nrow = 3, ncol = 4, fill = "float",
 #' diff_tb(tb1, tb2)
 #'
 diff_tb <- function(old, new) {
-  p <- waldo::compare(old, new)
-  compare_list <- p[[1]] %>%
-    str_split("\n") %>%
-    unlist() %>%
-    # clear format
-    str_replace_all("\033\\[\\d+?m", "") %>%
-    # clear extra space
-    str_replace_all("new|old", "") %>%
-    str_replace_all("^([+-]) \\[(\\d+), \\]", "\\1[\\2,]") %>%
-    # split
-    str_split(" +")
+  if (!is.data.frame(old) || !is.data.frame(new)) {
+    stop("Please input tibble object!")
+  }
 
-  res <- compare_list[3:length(compare_list)] %>%
-    list2tibble(colnames = c("compare", compare_list[[2]][-1]))
+  # fill missing colnames
+  all_colnames <- union(colnames(old), colnames(new))
+  old[, setdiff(all_colnames, colnames(old))] <- NA
+  old <- old[, all_colnames]
+  new[, setdiff(all_colnames, colnames(new))] <- NA
+  new <- new[, all_colnames]
 
-  return(res)
+  # detect diff rows
+  old_line <- tidyr::unite(old, "unite", dplyr::everything(), sep = "___") %>%
+    dplyr::pull(.data[["unite"]])
+  new_line <- tidyr::unite(new, "unite", dplyr::everything(), sep = "___") %>%
+    dplyr::pull(.data[["unite"]])
+
+  diffs <- ses(old_line, new_line)
+
+
+  if (length(diffs) == 0) {
+    return(tibble())
+  } else {
+    # diff rows
+    res_row <- apply(
+      diffs, 1,
+      function(row) {
+        old_rows <- row["x1"]:row["x2"]
+        old_part <- old[old_rows, ] %>%
+          dplyr::mutate(`.diff` = str_glue("-old[{old_rows}, ]"), .before = 1)
+        new_rows <- row["y1"]:row["y2"]
+        new_part <- new[new_rows, ] %>%
+          dplyr::mutate(`.diff` = str_glue("+new[{new_rows}, ]"), .before = 1)
+        if (row["t"] == "d") {
+          change_tb <- old_part %>%
+            dplyr::mutate(`.diff_type` = "d", .before = 1)
+        } else if (row["t"] == "a") {
+          change_tb <- new_part %>%
+            dplyr::mutate(`.diff_type` = "a", .before = 1)
+        } else if (row["t"] == "c") {
+          change_tb <- dplyr::bind_rows(old_part, new_part)
+          sel <- vctrs::vec_interleave(
+            seq_len(nrow(old_part)), nrow(old_part) + seq_len(nrow(new_part))
+          )
+          change_tb <- change_tb[sel, ] %>%
+            dplyr::mutate(`.diff_type` = "c", .before = 1)
+        }
+        return(change_tb)
+      }
+    )
+
+    res_row <- purrr::reduce(res_row, dplyr::bind_rows)
+
+    # diff cols
+    res_change_old <- res_row %>%
+      dplyr::filter(
+        .data[[".diff_type"]] == "c",
+        str_detect(.data[[".diff"]], "^-old")
+      )
+    res_change_new <- res_row %>%
+      dplyr::filter(
+        .data[[".diff_type"]] == "c",
+        str_detect(.data[[".diff"]], "^\\+new")
+      )
+    if (nrow(res_change_old) == nrow(res_change_new)) {
+      diff_cols <- which(colSums(res_change_old %neq% res_change_new) > 0)
+    } else {
+      diff_cols <- all_colnames
+    }
+
+    res <- res_row %>%
+      dplyr::select(
+        dplyr::all_of(c(".diff_type", ".diff")),
+        dplyr::all_of(diff_cols)
+      )
+
+    return(res)
+  }
 }
 
 
@@ -887,4 +995,156 @@ uniq_in_cols <- function(x) {
     tdf(colnames = c("col", "uniqe_values"))
 
   return(res)
+}
+
+
+#' like `dplyr::left_join` while ignore the same columns in right tibble
+#'
+#' @param x left tibble
+#' @param y right tibble
+#' @param by columns to join by
+#'
+#' @return tibble
+#' @export
+#'
+#' @examples
+#'
+#' tb1 <- head(mini_diamond, 4)
+#' tb2 <- tibble::tibble(
+#'   id = c("id-2", "id-4", "id-5"),
+#'   carat = 1:3,
+#'   price = c(1000, 2000, 3000),
+#'   newcol = c("new2", "new4", "new5")
+#' )
+#'
+#' left_expand(tb1, tb2, by = "id")
+#'
+#' full_expand(tb1, tb2, by = "id")
+#'
+#' inner_expand(tb1, tb2, by = "id")
+left_expand <- function(x, y, by = NULL) {
+  if (is.null(by)) {
+    stop("input column(s) as index!")
+  }
+  expand_cols <- setdiff(colnames(y), colnames(x))
+  y <- dplyr::select(y, all_of(by), all_of(expand_cols))
+  res <- dplyr::left_join(x, y, by = by)
+  return(res)
+}
+
+
+#' like `dplyr::full_join` while ignore the same columns in right tibble
+#'
+#' @param x left tibble
+#' @param y right tibble
+#' @param by columns to join by
+#'
+#' @return tibble
+#' @export
+#'
+#' @examples
+#'
+#' tb1 <- head(mini_diamond, 4)
+#' tb2 <- tibble::tibble(
+#'   id = c("id-2", "id-4", "id-5"),
+#'   carat = 1:3,
+#'   price = c(1000, 2000, 3000),
+#'   newcol = c("new2", "new4", "new5")
+#' )
+#'
+#' left_expand(tb1, tb2, by = "id")
+#'
+#' full_expand(tb1, tb2, by = "id")
+#'
+#' inner_expand(tb1, tb2, by = "id")
+full_expand <- function(x, y, by = NULL) {
+  if (is.null(by)) {
+    stop("input column(s) as index!")
+  }
+  expand_cols <- setdiff(colnames(y), colnames(x))
+  y <- dplyr::select(y, all_of(by), all_of(expand_cols))
+  res <- dplyr::full_join(x, y, by = by)
+  return(res)
+}
+
+
+
+#' like `dplyr::inner_join` while ignore the same columns in right tibble
+#'
+#' @param x left tibble
+#' @param y right tibble
+#' @param by columns to join by
+#'
+#' @return tibble
+#' @export
+#'
+#' @examples
+#'
+#' tb1 <- head(mini_diamond, 4)
+#' tb2 <- tibble::tibble(
+#'   id = c("id-2", "id-4", "id-5"),
+#'   carat = 1:3,
+#'   price = c(1000, 2000, 3000),
+#'   newcol = c("new2", "new4", "new5")
+#' )
+#'
+#' left_expand(tb1, tb2, by = "id")
+#'
+#' full_expand(tb1, tb2, by = "id")
+#'
+#' inner_expand(tb1, tb2, by = "id")
+inner_expand <- function(x, y, by = NULL) {
+  if (is.null(by)) {
+    stop("input column(s) as index!")
+  }
+  expand_cols <- setdiff(colnames(y), colnames(x))
+  y <- dplyr::select(y, all_of(by), all_of(expand_cols))
+  res <- dplyr::inner_join(x, y, by = by)
+  return(res)
+}
+
+#' rewrite the NA values in a tibble by another tibble
+#'
+#' @param x raw tibble
+#' @param y replace reference tibble
+#' @param by columns to align the tibbles
+#'
+#' @return tibble
+#' @export
+#'
+#' @examples
+#'
+#' tb1 <- tibble::tibble(
+#'   id = c("id-1", "id-2", "id-3", "id-4"),
+#'   group = c("a", "b", "a", "b"),
+#'   price = c(0, -200, 3000, NA),
+#'   type = c("large", "none", "small", "none")
+#' )
+#'
+#' tb2 <- tibble::tibble(
+#'   id = c("id-1", "id-2", "id-3", "id-4"),
+#'   group = c("a", "b", "a", "b"),
+#'   price = c(1, 2, 3, 4),
+#'   type = c("l", "x", "x", "m")
+#' )
+#'
+#' rewrite_na(tb1, tb2, by = c("id", "group"))
+rewrite_na <- function(x, y, by) {
+  x <- tidyr::unite(x, "replace_cell_temp_id", !!by, sep = "__.rcsep.__") %>%
+    c2r("replace_cell_temp_id")
+  y <- tidyr::unite(y, "replace_cell_temp_id", !!by, sep = "__.rcsep.__") %>%
+    c2r("replace_cell_temp_id")
+  y <- y[rownames(x), colnames(x)]
+
+  if (any(dim(x) != dim(y))) {
+    stop("x and y should be equally-sized tibbles with same rows and columns!")
+  }
+
+  mask <- is.na(x)
+  x[mask] <- y[mask]
+
+  x <- r2c(x, "replace_cell_temp_id") %>%
+    tidyr::separate("replace_cell_temp_id", into = by, sep = "__.rcsep.__")
+
+  return(x)
 }

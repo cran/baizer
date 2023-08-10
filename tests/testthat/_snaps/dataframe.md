@@ -1379,29 +1379,25 @@
       Good  0.36 0.38 0.29 0.33 0.2 0.36 0.29 0.25
       Ideal 0.29 0.31 0.36 0.33 0.5 0.18 0.36 0.42
 
-# list2tibble, method='row'
+# list2df, method='row'
 
     Code
-      list2tibble(x, colnames = c("char", "num"))
+      list2df(x, colnames = c("char", "num"))
     Output
-      # A tibble: 3 x 2
-        char  num  
-        <chr> <chr>
-      1 a     1    
-      2 b     2    
-      3 c     3    
+          char num
+      It1    a   1
+      It2    b   2
+      It3    c   3
 
-# list2tibble, method='col'
+# list2df, method='col'
 
     Code
-      list2tibble(x, method = "col")
+      list2df(x, method = "col")
     Output
-      # A tibble: 3 x 2
-        V1    V2   
-        <chr> <chr>
-      1 a     1    
-      2 b     2    
-      3 c     3    
+        It1 It2
+      1   a   1
+      2   b   2
+      3   c   3
 
 # exist_matrix
 
@@ -1586,15 +1582,72 @@
     Code
       diff_tb(tb1, tb2)
     Output
-      # A tibble: 6 x 5
-        compare V1    V2    V3    V4   
-        <chr>   <chr> <chr> <chr> <chr>
-      1 -[1,]   -7    15    4     -4   
-      2 +[1,]   -10   -12   0     12   
-      3 -[2,]   1     3     7     15   
-      4 +[2,]   -3    1     11    -8   
-      5 -[3,]   -9    -9    5     3    
-      6 +[3,]   2     0     -13   -12  
+      # A tibble: 6 x 6
+        .diff_type .diff        V1    V2    V3    V4
+        <chr>      <glue>    <dbl> <dbl> <dbl> <dbl>
+      1 c          -old[1, ]    -7    15     4    -4
+      2 c          +new[1, ]   -10   -12     0    12
+      3 c          -old[2, ]     1     3     7    15
+      4 c          +new[2, ]    -3     1    11    -8
+      5 c          -old[3, ]    -9    -9     5     3
+      6 c          +new[3, ]     2     0   -13   -12
+
+# diff_tb, delete
+
+    Code
+      diff_tb(mini_diamond, mini_diamond[1:90, ])
+    Output
+      # A tibble: 10 x 2
+         .diff_type .diff      
+         <chr>      <glue>     
+       1 d          -old[91, ] 
+       2 d          -old[92, ] 
+       3 d          -old[93, ] 
+       4 d          -old[94, ] 
+       5 d          -old[95, ] 
+       6 d          -old[96, ] 
+       7 d          -old[97, ] 
+       8 d          -old[98, ] 
+       9 d          -old[99, ] 
+      10 d          -old[100, ]
+
+# diff_tb, add
+
+    Code
+      diff_tb(mini_diamond[1:90, ], mini_diamond)
+    Output
+      # A tibble: 10 x 2
+         .diff_type .diff      
+         <chr>      <glue>     
+       1 a          +new[91, ] 
+       2 a          +new[92, ] 
+       3 a          +new[93, ] 
+       4 a          +new[94, ] 
+       5 a          +new[95, ] 
+       6 a          +new[96, ] 
+       7 a          +new[97, ] 
+       8 a          +new[98, ] 
+       9 a          +new[99, ] 
+      10 a          +new[100, ]
+
+# diff_tb, add columns
+
+    Code
+      diff_tb(mini_diamond[1:5, -3], mini_diamond[1:5, ])
+    Output
+      # A tibble: 10 x 3
+         .diff_type .diff     cut  
+         <chr>      <glue>    <chr>
+       1 c          -old[1, ] <NA> 
+       2 c          +new[1, ] Fair 
+       3 c          -old[2, ] <NA> 
+       4 c          +new[2, ] Good 
+       5 c          -old[3, ] <NA> 
+       6 c          +new[3, ] Ideal
+       7 c          -old[4, ] <NA> 
+       8 c          +new[4, ] Ideal
+       9 c          -old[5, ] <NA> 
+      10 c          +new[5, ] Ideal
 
 # tdf
 
@@ -1650,4 +1703,55 @@
       5 price   99          
       6 x       89          
       7 y       87          
+
+# left_expand
+
+    Code
+      left_expand(tb1, tb2, by = "id")
+    Output
+      # A tibble: 4 x 8
+        id    carat cut   clarity price     x     y newcol
+        <chr> <dbl> <chr> <chr>   <int> <dbl> <dbl> <chr> 
+      1 id-1   1.02 Fair  SI1      3027  6.25  6.18 <NA>  
+      2 id-2   1.51 Good  VS2     11746  7.27  7.18 new2  
+      3 id-3   0.52 Ideal VVS1     2029  5.15  5.18 <NA>  
+      4 id-4   1.54 Ideal SI2      9452  7.43  7.45 new4  
+
+# full_expand
+
+    Code
+      full_expand(tb1, tb2, by = "id")
+    Output
+      # A tibble: 5 x 8
+        id    carat cut   clarity price     x     y newcol
+        <chr> <dbl> <chr> <chr>   <int> <dbl> <dbl> <chr> 
+      1 id-1   1.02 Fair  SI1      3027  6.25  6.18 <NA>  
+      2 id-2   1.51 Good  VS2     11746  7.27  7.18 new2  
+      3 id-3   0.52 Ideal VVS1     2029  5.15  5.18 <NA>  
+      4 id-4   1.54 Ideal SI2      9452  7.43  7.45 new4  
+      5 id-5  NA    <NA>  <NA>       NA NA    NA    new5  
+
+# inner_expand
+
+    Code
+      inner_expand(tb1, tb2, by = "id")
+    Output
+      # A tibble: 2 x 8
+        id    carat cut   clarity price     x     y newcol
+        <chr> <dbl> <chr> <chr>   <int> <dbl> <dbl> <chr> 
+      1 id-2   1.51 Good  VS2     11746  7.27  7.18 new2  
+      2 id-4   1.54 Ideal SI2      9452  7.43  7.45 new4  
+
+# rewrite_na
+
+    Code
+      rewrite_na(tb1, tb2, by = c("id", "group"))
+    Output
+      # A tibble: 4 x 4
+        id    group price type 
+        <chr> <chr> <chr> <chr>
+      1 id-1  a     0     large
+      2 id-2  b     -200  none 
+      3 id-3  a     3000  small
+      4 id-4  b     4     none 
 

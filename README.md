@@ -9,7 +9,7 @@
 coverage](https://codecov.io/gh/william-swl/baizer/branch/master/graph/badge.svg)](https://app.codecov.io/gh/william-swl/baizer?branch=master)
 [![R-CMD-check](https://github.com/william-swl/baizer/actions/workflows/check-standard.yaml/badge.svg)](https://github.com/william-swl/baizer/actions/workflows/check-standard.yaml)
 [![](https://www.r-pkg.org/badges/version/baizer?color=orange)](https://cran.r-project.org/package=baizer)
-[![](https://img.shields.io/badge/devel%20version-0.5.10-blue.svg)](https://github.com/william-swl/baizer)
+[![](https://img.shields.io/badge/devel%20version-0.7.0-blue.svg)](https://github.com/william-swl/baizer)
 [![](http://cranlogs.r-pkg.org/badges/grand-total/baizer?color=blue)](https://cran.r-project.org/package=baizer)
 [![](http://cranlogs.r-pkg.org/badges/last-month/baizer?color=green)](https://cran.r-project.org/package=baizer)
 <!-- badges: end -->
@@ -22,6 +22,8 @@ coverage](https://codecov.io/gh/william-swl/baizer/branch/master/graph/badge.svg
 
 ## installation
 
+### universal installation
+
 You can install the stable version of `baizer` like so:
 
 ``` r
@@ -32,6 +34,14 @@ Or install the development version of `baizer` like so:
 
 ``` r
 devtools::install_github("william-swl/baizer")
+```
+
+### specific installation
+
+If you prefer `Macports` on MacOS:
+
+``` sh
+sudo port install R-baizer
 ```
 
 ## basic utils
@@ -351,19 +361,19 @@ v <- c(
   stringr::str_c("B", c(1, 2, 9, 10, 21, 32, 99, 101, 102))
 ) %>% sample()
 v
-#>  [1] "A101" "A12"  "A10"  "A1"   "B32"  "B102" "B101" "B1"   "A102" "B21" 
-#> [11] "A99"  "B2"   "B9"   "A2"   "B10"  "A11"  "A9"   "B99"
+#>  [1] "A11"  "B99"  "B102" "B2"   "B21"  "A99"  "A102" "B1"   "B32"  "A1"  
+#> [11] "A9"   "B9"   "A12"  "A2"   "A10"  "A101" "B10"  "B101"
 
 group_vector(v)
 #> $A
-#> [1] "A101" "A12"  "A10"  "A1"   "A102" "A99"  "A2"   "A11"  "A9"  
+#> [1] "A11"  "A99"  "A102" "A1"   "A9"   "A12"  "A2"   "A10"  "A101"
 #> 
 #> $B
-#> [1] "B32"  "B102" "B101" "B1"   "B21"  "B2"   "B9"   "B10"  "B99"
+#> [1] "B99"  "B102" "B2"   "B21"  "B1"   "B32"  "B9"   "B10"  "B101"
 
 group_vector(v, pattern = "\\w\\d")
 #> $A1
-#> [1] "A101" "A12"  "A10"  "A1"   "A102" "A11" 
+#> [1] "A11"  "A102" "A1"   "A12"  "A10"  "A101"
 #> 
 #> $A2
 #> [1] "A2"
@@ -372,35 +382,35 @@ group_vector(v, pattern = "\\w\\d")
 #> [1] "A99" "A9" 
 #> 
 #> $B1
-#> [1] "B102" "B101" "B1"   "B10" 
+#> [1] "B102" "B1"   "B10"  "B101"
 #> 
 #> $B2
-#> [1] "B21" "B2" 
+#> [1] "B2"  "B21"
 #> 
 #> $B3
 #> [1] "B32"
 #> 
 #> $B9
-#> [1] "B9"  "B99"
+#> [1] "B99" "B9"
 
 # the pattern rules are just same as reg_match()
 group_vector(v, pattern = "\\w(\\d)")
 #> $`1`
-#>  [1] "A101" "A12"  "A10"  "A1"   "B102" "B101" "B1"   "A102" "B10"  "A11" 
+#>  [1] "A11"  "B102" "A102" "B1"   "A1"   "A12"  "A10"  "A101" "B10"  "B101"
 #> 
 #> $`2`
-#> [1] "B21" "B2"  "A2" 
+#> [1] "B2"  "B21" "A2" 
 #> 
 #> $`3`
 #> [1] "B32"
 #> 
 #> $`9`
-#> [1] "A99" "B9"  "A9"  "B99"
+#> [1] "B99" "A99" "A9"  "B9"
 
 # unmatched part will alse be stored
 group_vector(v, pattern = "\\d{2}")
 #> $`10`
-#> [1] "A101" "A10"  "B102" "B101" "A102" "B10" 
+#> [1] "B102" "A102" "A10"  "A101" "B10"  "B101"
 #> 
 #> $`11`
 #> [1] "A11"
@@ -415,10 +425,10 @@ group_vector(v, pattern = "\\d{2}")
 #> [1] "B32"
 #> 
 #> $`99`
-#> [1] "A99" "B99"
+#> [1] "B99" "A99"
 #> 
 #> $unmatch
-#> [1] "A1" "B1" "B2" "B9" "A2" "A9"
+#> [1] "B2" "B1" "A1" "A9" "B9" "A2"
 ```
 
 - sort by a function
@@ -429,7 +439,7 @@ sortf(c(-2, 1, 3), abs)
 
 v <- stringr::str_c("id", c(1, 2, 9, 10, 11, 12, 99, 101, 102)) %>% sample()
 v
-#> [1] "id102" "id11"  "id99"  "id12"  "id9"   "id10"  "id101" "id1"   "id2"
+#> [1] "id9"   "id1"   "id12"  "id10"  "id2"   "id102" "id101" "id99"  "id11"
 
 sortf(v, function(x) reg_match(x, "\\d+") %>% as.double())
 #> [1] "id1"   "id2"   "id9"   "id10"  "id11"  "id12"  "id99"  "id101" "id102"
@@ -445,8 +455,8 @@ v <- c(
   stringr::str_c("B", c(1, 2, 9, 10, 21, 32, 99, 101, 102))
 ) %>% sample()
 v
-#>  [1] "A11"  "B101" "B32"  "A9"   "B10"  "B9"   "A12"  "A10"  "A101" "A2"  
-#> [11] "B21"  "A1"   "A102" "B1"   "B2"   "A99"  "B99"  "B102"
+#>  [1] "A102" "A9"   "A99"  "B2"   "A101" "A2"   "B32"  "B99"  "B1"   "A10" 
+#> [11] "A12"  "A1"   "B101" "B10"  "A11"  "B9"   "B102" "B21"
 
 sortf(v, ~ reg_match(.x, "\\d+") %>% as.double(), group_pattern = "\\w")
 #>  [1] "A1"   "A2"   "A9"   "A10"  "A11"  "A12"  "A99"  "A101" "A102" "B1"  
@@ -481,7 +491,7 @@ uniq(v)
 #> 1 2 3
 ```
 
-- replace the items of a list by another
+- replace the items of one object by another
 
 ``` r
 x <- list(A = 1, B = 3)
@@ -504,13 +514,34 @@ replace_item(x, y, keep_extra = TRUE)
 #> $C
 #> [1] 10
 
+x <- list(a = 1, b = list(c = "a", d = FALSE, f = list(x = 0, z = 30)))
+y <- list(a = 3, e = 2, b = list(d = TRUE, f = list(x = 10, y = 20)))
 
-x <- c(A = 1, B = 3)
-y <- c(A = 9, C = 10)
-
-replace_item(x, y)
-#> A B 
-#> 9 3
+replace_item(x, y, keep_extra = TRUE)
+#> $a
+#> [1] 3
+#> 
+#> $b
+#> $b$c
+#> [1] "a"
+#> 
+#> $b$d
+#> [1] TRUE
+#> 
+#> $b$f
+#> $b$f$x
+#> [1] 10
+#> 
+#> $b$f$z
+#> [1] 30
+#> 
+#> $b$f$y
+#> [1] 20
+#> 
+#> 
+#> 
+#> $e
+#> [1] 2
 ```
 
 - generate characters
@@ -526,10 +557,10 @@ gen_char(from = "g", to = "j")
 #> [1] "g" "h" "i" "j"
 
 gen_char(from = "t", n = 5, random = TRUE)
-#> [1] "v" "x" "y" "u" "z"
+#> [1] "x" "y" "v" "x" "w"
 
 gen_char(from = "x", n = 5, random = TRUE, allow_dup = FALSE, add = c("+", "-"))
-#> [1] "y" "x" "z" "-" "+"
+#> [1] "+" "y" "-" "z" "x"
 ```
 
 - trans range character into seq characters
@@ -578,6 +609,13 @@ x3 <- c(4, NA, NA, 3)
 
 combn_vector(x1, x2, x3, method = "sum")
 #> [1] 8 2 2 3
+```
+
+- broadcast the vector into length n
+
+``` r
+broadcast_vector(1:3, 5)
+#> [1] 1 2 3 1 2
 ```
 
 ## numbers
@@ -712,7 +750,7 @@ pos_int_split(12, 3, method = "average")
 #> [1] 4 4 4
 
 pos_int_split(12, 3, method = "random")
-#> [1] 5 6 1
+#> [1] 7 1 4
 
 # you can also assign the ratio of output
 pos_int_split(12, 3, method = c(1, 2, 3))
@@ -725,23 +763,23 @@ pos_int_split(12, 3, method = c(1, 2, 3))
 x <- seq(0, 100, 1)
 
 gen_outlier(x, 10)
-#>  [1] -146 -157 -150 -167 -178  257  277  270  300  287
+#>  [1] -112 -176  -53 -122 -176  239  262  269  298  231
 
 # generation limits
 gen_outlier(x, 10, lim = c(-80, 160))
-#>  [1] -69 -71 -65 -76 -78 155 157 159 155 157
+#>  [1] -72 -66 -58 -50 -57 154 154 152 157 154
 
 # assign the low and high outliers
 gen_outlier(x, 10, lim = c(-80, 160), assign_n = c(0.1, 0.9))
-#>  [1] -53 159 159 156 160 158 155 151 154 159
+#>  [1] -55 156 152 158 151 152 157 155 152 157
 
 # just generate low outliers
 gen_outlier(x, 10, side = "low")
-#>  [1] -167 -176  -68 -113  -81  -89  -52 -152 -185 -198
+#>  [1]  -68 -144  -62 -196  -81 -172  -87 -189  -53  -62
 
 # return with raw vector
 gen_outlier(x, 10, only_out = FALSE)
-#>   [1] -128  -76 -171 -152 -191  290  184  270  298  268    0    1    2    3    4
+#>   [1]  -53 -180 -198  -79  -81  208  235  297  295  211    0    1    2    3    4
 #>  [16]    5    6    7    8    9   10   11   12   13   14   15   16   17   18   19
 #>  [31]   20   21   22   23   24   25   26   27   28   29   30   31   32   33   34
 #>  [46]   35   36   37   38   39   40   41   42   43   44   45   46   47   48   49
@@ -1210,13 +1248,11 @@ x <- list(
   c("c", "3")
 )
 
-list2tibble(x, colnames = c("char", "num"))
-#> # A tibble: 3 × 2
-#>   char  num  
-#>   <chr> <chr>
-#> 1 a     1    
-#> 2 b     2    
-#> 3 c     3
+list2df(x, colnames = c("char", "num"))
+#>     char num
+#> It1    a   1
+#> It2    b   2
+#> It3    c   3
 
 
 x <- list(
@@ -1224,13 +1260,11 @@ x <- list(
   c("1", "2", "3")
 )
 
-list2tibble(x, method = "col")
-#> # A tibble: 3 × 2
-#>   V1    V2   
-#>   <chr> <chr>
-#> 1 a     1    
-#> 2 b     2    
-#> 3 c     3
+list2df(x, method = "col")
+#>   It1 It2
+#> 1   a   1
+#> 2   b   2
+#> 3   c   3
 ```
 
 - generate a matrix to show whether the item in each element of a list
@@ -1326,19 +1360,19 @@ dx_tb(x)
 ``` r
 gen_tb()
 #> # A tibble: 3 × 4
-#>       V1     V2    V3     V4
-#>    <dbl>  <dbl> <dbl>  <dbl>
-#> 1 -0.218 -1.07   1.27  1.04 
-#> 2 -0.278  0.493 -1.64 -1.78 
-#> 3  0.353  0.541  1.96  0.258
+#>       V1     V2     V3     V4
+#>    <dbl>  <dbl>  <dbl>  <dbl>
+#> 1  0.218 -1.47  -0.821  1.34 
+#> 2 -0.130  0.504  0.538  1.11 
+#> 3 -1.09  -0.989 -0.836 -0.551
 
 gen_tb(fill = "str", nrow = 3, ncol = 4, len = 3)
 #> # A tibble: 3 × 4
 #>   V1    V2    V3    V4   
 #>   <chr> <chr> <chr> <chr>
-#> 1 iph   qsx   ewy   jak  
-#> 2 vrz   qmq   uei   cig  
-#> 3 pcx   lmm   yzq   pig
+#> 1 xeg   rse   hyp   lqh  
+#> 2 odn   whh   dfj   xdk  
+#> 3 ukw   cpz   zot   bsz
 ```
 
 - differences between two tibbles
@@ -1363,15 +1397,15 @@ tb2
 #> 3     2     0   -13   -12
 
 diff_tb(tb1, tb2)
-#> # A tibble: 6 × 5
-#>   compare V1    V2    V3    V4   
-#>   <chr>   <chr> <chr> <chr> <chr>
-#> 1 -[1,]   -7    15    4     -4   
-#> 2 +[1,]   -10   -12   0     12   
-#> 3 -[2,]   1     3     7     15   
-#> 4 +[2,]   -3    1     11    -8   
-#> 5 -[3,]   -9    -9    5     3    
-#> 6 +[3,]   2     0     -13   -12
+#> # A tibble: 6 × 6
+#>   .diff_type .diff        V1    V2    V3    V4
+#>   <chr>      <glue>    <dbl> <dbl> <dbl> <dbl>
+#> 1 c          -old[1, ]    -7    15     4    -4
+#> 2 c          +new[1, ]   -10   -12     0    12
+#> 3 c          -old[2, ]     1     3     7    15
+#> 4 c          +new[2, ]    -3     1    11    -8
+#> 5 c          -old[3, ]    -9    -9     5     3
+#> 6 c          +new[3, ]     2     0   -13   -12
 ```
 
 - transpose a dataframe
@@ -1405,6 +1439,62 @@ uniq_in_cols(mini_diamond)
 #> 7 y       87
 ```
 
+- like `left_join(), full_join(), inner_join()` while ignore the same
+  columns in right tibble
+
+``` r
+tb1 <- head(mini_diamond, 4)
+tb2 <- tibble(
+  id = c("id-2", "id-4", "id-5"),
+  carat = 1:3,
+  price = c(1000, 2000, 3000),
+  newcol = c("new2", "new4", "new5")
+)
+
+left_expand(tb1, tb2, by = "id")
+#> # A tibble: 4 × 8
+#>   id    carat cut   clarity price     x     y newcol
+#>   <chr> <dbl> <chr> <chr>   <int> <dbl> <dbl> <chr> 
+#> 1 id-1   1.02 Fair  SI1      3027  6.25  6.18 <NA>  
+#> 2 id-2   1.51 Good  VS2     11746  7.27  7.18 new2  
+#> 3 id-3   0.52 Ideal VVS1     2029  5.15  5.18 <NA>  
+#> 4 id-4   1.54 Ideal SI2      9452  7.43  7.45 new4
+
+inner_expand(tb1, tb2, by = "id")
+#> # A tibble: 2 × 8
+#>   id    carat cut   clarity price     x     y newcol
+#>   <chr> <dbl> <chr> <chr>   <int> <dbl> <dbl> <chr> 
+#> 1 id-2   1.51 Good  VS2     11746  7.27  7.18 new2  
+#> 2 id-4   1.54 Ideal SI2      9452  7.43  7.45 new4
+```
+
+- rewrite the NA values in a tibble by another tibble
+
+``` r
+tb1 <- tibble(
+  id = c("id-1", "id-2", "id-3", "id-4"),
+  group = c("a", "b", "a", "b"),
+  price = c(0, -200, 3000, NA),
+  type = c("large", "none", "small", "none")
+)
+
+tb2 <- tibble(
+  id = c("id-1", "id-2", "id-3", "id-4"),
+  group = c("a", "b", "a", "b"),
+  price = c(1, 2, 3, 4),
+  type = c("l", "x", "x", "m")
+)
+
+rewrite_na(tb1, tb2, by = c("id", "group"))
+#> # A tibble: 4 × 4
+#>   id    group price type 
+#>   <chr> <chr> <chr> <chr>
+#> 1 id-1  a     0     large
+#> 2 id-2  b     -200  none 
+#> 3 id-3  a     3000  small
+#> 4 id-4  b     4     none
+```
+
 ## stat
 
 - generate all combinations
@@ -1435,18 +1525,18 @@ gen_combn(1:4, n = 2)
 ``` r
 stat_test(mini_diamond, y = price, x = cut, .by = clarity)
 #> # A tibble: 24 × 9
-#>    y     clarity group1 group2    n1    n2      p  plim symbol
-#>    <chr> <chr>   <chr>  <chr>  <int> <int>  <dbl> <dbl> <chr> 
-#>  1 price I1      Fair   Good       5     5 0.310   1.01 NS    
-#>  2 price I1      Fair   Ideal      5     4 0.905   1.01 NS    
-#>  3 price I1      Good   Ideal      5     4 0.190   1.01 NS    
-#>  4 price IF      Fair   Good       4     5 0.0635  1.01 NS    
-#>  5 price IF      Fair   Ideal      4     4 0.0591  1.01 NS    
-#>  6 price IF      Good   Ideal      5     4 1       1.01 NS    
-#>  7 price SI1     Fair   Good       5     4 1       1.01 NS    
-#>  8 price SI1     Fair   Ideal      5     5 1       1.01 NS    
-#>  9 price SI1     Good   Ideal      4     5 0.413   1.01 NS    
-#> 10 price SI2     Fair   Good       4     4 0.0571  1.01 NS    
+#>    y     clarity group1 group2    n1    n2 p      plim psymbol
+#>    <chr> <chr>   <chr>  <chr>  <int> <int> <chr> <dbl> <chr>  
+#>  1 price I1      Fair   Good       5     5 0.31   1.01 NS     
+#>  2 price I1      Fair   Ideal      5     4 0.90   1.01 NS     
+#>  3 price I1      Good   Ideal      5     4 0.19   1.01 NS     
+#>  4 price IF      Fair   Good       4     5 0.063  1.01 NS     
+#>  5 price IF      Fair   Ideal      4     4 0.059  1.01 NS     
+#>  6 price IF      Good   Ideal      5     4 1.0    1.01 NS     
+#>  7 price SI1     Fair   Good       5     4 1.0    1.01 NS     
+#>  8 price SI1     Fair   Ideal      5     5 1.0    1.01 NS     
+#>  9 price SI1     Good   Ideal      4     5 0.41   1.01 NS     
+#> 10 price SI2     Fair   Good       4     4 0.057  1.01 NS     
 #> # … with 14 more rows
 ```
 
@@ -1501,7 +1591,7 @@ cmdargs()
 #> [2] "--no-save"                            
 #> [3] "--no-restore"                         
 #> [4] "-f"                                   
-#> [5] "/tmp/RtmpI0to3Z/callr-scr-51aa573469f"
+#> [5] "/tmp/RtmpuAd91p/callr-scr-a2323f44a4e"
 
 cmdargs("R_env")
 #> [1] "/home/william/software/mambaforge/envs/baizer/lib/R/bin/exec/R"
@@ -1576,7 +1666,7 @@ c2 <- tbflt(x > 8)
 c1 | c2
 #> <quosure>
 #> expr: ^cut == "Fair" | x > 8
-#> env:  0x55f7a8a8b0e8
+#> env:  0x55e549c61190
 
 mini_diamond %>%
   filterC(c1) %>%
