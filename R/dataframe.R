@@ -257,7 +257,7 @@ ordered_slice <- function(df, by, ordered_vector,
 #' remove columns by the ratio of NA
 #'
 #' @param df tibble
-#' @param max_ratio max NA ratio, default as 1 which remove the columns only
+#' @param max_ratio the max NA ratio to keep this column, default is 1
 #' have NA
 #'
 #' @return tibble
@@ -273,7 +273,7 @@ remove_nacol <- function(df, max_ratio = 1) {
 #' remove rows by the ratio of NA
 #'
 #' @param df tibble
-#' @param max_ratio max NA ratio, default as 1 which remove the rows only
+#' @param max_ratio the max NA ratio to keep this row, default is 1
 #' have NA
 #' @param ... only remove rows according to these columns,
 #' refer to `dplyr::select()`
@@ -294,6 +294,22 @@ remove_narow <- function(df, ..., max_ratio = 1) {
   return(res)
 }
 
+
+#' remove columns by the ratio of an identical single value (NA supported)
+#'
+#' @param df tibble
+#' @param max_ratio the max single value ratio to keep this column, default is 1
+#'
+#' @return tibble
+#' @export
+#'
+#' @examples # remove_monocol(df)
+remove_monocol <- function(df, max_ratio = 1) {
+  keep <- which(colSums(df %eq% df[rep(1, nrow(df)), ]) < max_ratio * nrow(df))
+  res <- df[, keep]
+
+  return(res)
+}
 
 
 #' separate numeric x into bins
@@ -1147,4 +1163,35 @@ rewrite_na <- function(x, y, by) {
     tidyr::separate("replace_cell_temp_id", into = by, sep = "__.rcsep.__")
 
   return(x)
+}
+
+
+
+#' remove outliers and NA
+#'
+#' @param df tibble
+#' @param col columns to remove outliers
+#' @param .by group by
+#'
+#' @return tibble
+#' @export
+#'
+#' @examples remove_outliers(mini_diamond, price)
+remove_outliers <- function(df, col, .by = NULL) {
+  col <- enquo(col)
+  .by <- enquo(.by)
+
+  res <- df %>%
+    dplyr::mutate(
+      iqr_ = IQR({{ col }}),
+      out_high_ = boxplot.stats({{ col }})$stats[4] + .data[["iqr_"]],
+      out_low_ = boxplot.stats({{ col }})$stats[2] - .data[["iqr_"]],
+      .by = {{ .by }}
+    ) %>%
+    dplyr::filter(
+      {{ col }} >= .data[["out_low_"]],
+      {{ col }} <= .data[["out_high_"]]
+    ) %>%
+    dplyr::select(-dplyr::all_of(c("iqr_", "out_high_", "out_low_")))
+  return(res)
 }

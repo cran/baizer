@@ -366,3 +366,34 @@ test_that("rewrite_na", {
   )
   expect_snapshot(rewrite_na(tb1, tb2, by = c("id", "group")))
 })
+
+
+
+test_that("remove_outliers", {
+  out <- tibble(
+    id = str_c("out-", 1:20),
+    price = gen_outlier(mini_diamond %>% dplyr::pull(price), n = 20)
+  )
+  test <- bind_rows(mini_diamond, out)
+
+  expect_equal(nrow(remove_outliers(test, price)), 93)
+  expect_equal(nrow(remove_outliers(test, price, .by = "cut")), 110)
+})
+
+
+test_that("remove_monocol", {
+  tb <- tibble(
+    x = c(1, 1, 1, 2),
+    y = c(1, 1, 2, 2),
+    z = c(1, 1, 1, 1),
+    x1 = c(1, 1, 1, NA),
+    y1 = c(1, 1, NA, NA),
+    z1 = c(NA, NA, NA, NA),
+    x2 = c(NA, NA, NA, 1),
+    y2 = c(NA, NA, 1, 1)
+  )
+
+  expect_equal(ncol(remove_monocol(tb, max_ratio = 1)), 6)
+  expect_equal(ncol(remove_monocol(tb, max_ratio = 0.6)), 3)
+  expect_equal(ncol(remove_monocol(tb, max_ratio = 0.5)), 0)
+})

@@ -71,6 +71,21 @@ pkgver <- function(...) {
     !(is.na(x) & is.na(y))
 }
 
+
+#' equal calculation operator, support NA
+#'
+#' @param x value x
+#' @param y value y
+#'
+#' @return logical value, TRUE if x and y are not equal
+#' @export
+#'
+#' @examples NA %eq% NA
+`%eq%` <- function(x, y) {
+  !(x %neq% y)
+}
+
+
 #' not NA
 #'
 #' @param x value
@@ -1039,4 +1054,61 @@ max_depth <- function(x) {
       return(max(depths) + 1)
     }
   }
+}
+
+
+#' replace specific characters in a string by their locations
+#'
+#' @param x string
+#' @param start start
+#' @param end end
+#' @param replacement replacement
+#'
+#' @return replaced string
+#' @export
+#'
+#' @examples str_replace_loc("abcde", 1, 3, "A")
+str_replace_loc <- function(x, start = 1, end = nchar(x), replacement = " ") {
+  if (any(start > end)) {
+    stop("start <= end please")
+  }
+
+  raw <- str_sub(x, start, end)
+  raw_pattern <- fix_to_regex(raw)
+
+  pattern <- str_c(str_glue("(^.{{{start - 1}}})"), raw_pattern)
+  content <- str_c("\\1", replacement)
+
+  res <- str_replace(x, pattern, content)
+
+  return(res)
+}
+
+
+#' swap the names and values of a vector
+#'
+#' @param x vector without duplicated values
+#'
+#' @return swapped vector
+#' @export
+#'
+#' @examples
+#' v <- c("a" = "A", "b" = "B", "c" = "C")
+#' swap_vecname(v)
+#'
+swap_vecname <- function(x) {
+  if (!is(x, "vector")) {
+    stop("please input vector!")
+  }
+  if (any(duplicated(x))) {
+    stop("duplicated values!")
+  }
+  if (is.null(names(x))) {
+    names(x) <- seq_along(x)
+  }
+
+
+  res <- stats::setNames(names(x), x)
+
+  return(res)
 }

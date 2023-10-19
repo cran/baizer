@@ -115,6 +115,16 @@ split_path <- function(path) {
 }
 
 
+#' read excel file
+#'
+#' @param ... arguments of `readxl::read_excel`
+#'
+#' @return tibble
+#' @export
+read_excel <- function(...) {
+  readxl::read_excel(...)
+}
+
 
 #' write a tibble into an excel file
 #'
@@ -167,6 +177,43 @@ write_excel <- function(df, filename, sheetname = NULL, creator = "") {
 }
 
 
+#' read multi-sheet excel file as a list of tibbles
+#'
+#' @param x path
+#'
+#' @return list
+#' @export
+#'
+read_excel_list <- function(x) {
+  sheets <- readxl::excel_sheets(x)
+  res <- purrr::map(sheets, ~ readxl::read_excel(path = x, sheet = .x))
+  names(res) <- sheets
+  return(res)
+}
+
+
+#' read front matter markdown
+#'
+#' @param x path
+#' @param rm_blank_line remove leading and trailing blank lines
+#'
+#' @return list
+#' @export
+#'
+read_fmmd <- function(x, rm_blank_line = TRUE) {
+  res <- rmarkdown::yaml_front_matter(x)
+  content_md <- readr::read_file(x) %>%
+    str_remove(stringr::regex("^---.+---", dotall = TRUE))
+
+  if (rm_blank_line == TRUE) {
+    content_md <- str_remove(content_md, "^\\n+") %>%
+      str_replace("\\n*$", "\n")
+  }
+
+  res[["content_md"]] <- content_md
+
+  return(res)
+}
 
 
 #' connection parameters to remote server via sftp
